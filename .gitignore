@@ -5,3 +5,5 @@ source/
 .env*
 *.log
 media kit.pdf
+__pycache__/
+*.pyc
