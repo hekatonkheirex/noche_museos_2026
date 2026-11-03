@@ -23,6 +23,16 @@ Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, fun
 
 Las paradas que se tapan entre sí (porque el zoom las junta, o porque una parada compartida aparece en varias rutas) se separan en abanico (`app/src/spread.js`, función pura `spread` con tests) y una línea guía une cada pin con su ubicación real. Al acercar, vuelven a su lugar.
 
+## Información de cada parada
+
+El popup de cada parada muestra la ficha publicada en https://www.nochedemuseos.org.py/museos-info: horario habitual, dirección y teléfono (con enlace para llamar) y, en "Más información", categoría, dependencia, descripción, sitio web, correo e Instagram (`app/src/info.js`; los textos son de un tercero, así que se escapan y los enlaces se validan). Es el horario **habitual** del museo; el horario de cierre de la noche del evento sigue saliendo de `app/src/cierres.json`.
+
+Esa página solo lista 42 espacios de Asunción: 25 de nuestras 61 paradas tienen ficha. Para el resto el popup queda como antes. Actualizar:
+
+1. `python3 scripts/fetch-fichas.py` descarga la página y guarda `scripts/fichas.json`.
+2. `node scripts/build-info.mjs` cruza las fichas con las paradas y escribe `app/src/museos-info.json` (e imprime las paradas sin ficha). Coincide por nombre normalizado o por los alias de `scripts/info-alias.json`; no hay coincidencia aproximada, porque preferimos no mostrar nada antes que la dirección de otro lugar.
+3. `npm test` en `app/` comprueba que todo esté al día.
+
 ## Ir a una parada
 
 Cada parada (en el mapa o al tocarla en la lista, que ahora abre su popup) tiene enlaces "Google Maps" y "Waze" con indicaciones desde la ubicación actual (`app/src/links.js`, URLs oficiales, sin claves). En las paradas con ubicación aproximada (calle) el destino es esa calle. Los enlaces necesitan conexión.

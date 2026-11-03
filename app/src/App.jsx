@@ -5,6 +5,8 @@ import { Protocol } from 'pmtiles'
 import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE, track, TRACK_OFF } from './locate.js'
 import { arrowHtml, arrowsAlong } from './arrows.js'
 import { laneUnits, offsetPath } from './lanes.js'
+import { infoHtml } from './info.js'
+import museos from './museos-info.json' // ficha de cada parada (scripts/build-info.mjs)
 import { googleMapsUrl, wazeUrl } from './links.js'
 import { spread } from './spread.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
@@ -125,7 +127,7 @@ export default function App() {
         })
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}<div style="margin-top:8px;display:flex;gap:6px">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div>`)
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`, { maxWidth: 300 }) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;gap:6px">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div>`)
           .addTo(g)
         pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size })
       }
