@@ -52,8 +52,8 @@ export default function App() {
       <aside className={`z-[1000] flex flex-col bg-white shadow-lg md:w-80 ${open ? 'h-3/5' : 'h-auto'} md:h-full`}>
         <header className="flex items-center justify-between gap-3 bg-ndm-navy px-3 py-3 text-white">
           <div className="min-w-0">
-            <img src="/ndm-logo-blanco.svg" alt="Asociación Noche de los Museos" className="h-10 w-auto" />
-            <h1 className="mt-1 text-xs font-light tracking-wide text-ndm-sky">Rutas 2026 · 7 de noviembre · 18 h</h1>
+            <img src="/ndm-2026-logo.png" alt="Noche de los Museos 2026" width="104" height="48" className="h-12 w-auto" />
+            <h1 className="mt-1 text-xs font-light tracking-wide text-ndm-sky">Rutas · 7 de noviembre · 18 h</h1>
           </div>
           <button className="shrink-0 rounded-full border border-white/70 px-3 py-1 text-sm font-semibold md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>
             {open ? 'Ocultar' : 'Rutas'}
