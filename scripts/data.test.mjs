@@ -72,3 +72,10 @@ test('MEF: en la esquina de Palma y Chile, en diagonal al Panteón (no a mitad d
     assert.equal(mef.approx, false)
   }
 })
+
+test('Casa Bicentenario del Teatro y de la Danza: mismo edificio (25 de Mayo 993 según nochedemuseos.org.py), misma ubicación', () => {
+  const stops = JSON.parse(readFileSync(new URL('../app/src/data.json', import.meta.url), 'utf8')).routes.B
+  const t = stops.find((s) => s.nombre.includes('Teatro Edda')), d = stops.find((s) => s.nombre.includes('Danza'))
+  const m = Math.hypot((t.lat - d.lat) * 111_000, (t.lon - d.lon) * 100_600)
+  assert.ok(m < 15, `a ${Math.round(m)} m`)
+})
