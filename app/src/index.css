@@ -1,6 +1,17 @@
 @import 'tailwindcss';
 @import 'leaflet/dist/leaflet.css';
 
+/* Media kit oficial (Asoc. Noche de los Museos): Montserrat; azul #001E47 y gris #232120 tal como se ven en las páginas de identidad del kit
+   (el texto del kit dice #1D0F44 para el azul; el arte del kit usa #001E47), celeste #66A8D8 de acento. */
+@theme {
+  --font-sans: 'Montserrat', system-ui, sans-serif;
+  --color-ndm-navy: #001e47;
+  --color-ndm-ink: #232120;
+  --color-ndm-sky: #66a8d8;
+}
+
 html, body, #root { height: 100%; margin: 0; }
+body { font-family: var(--font-sans); color: var(--color-ndm-ink); }
+.leaflet-container { font-family: inherit; }
 .pin { display:grid; place-items:center; border-radius:9999px; color:#fff; font:700 12px/1 system-ui; border:2px solid #fff; box-shadow:0 1px 4px #0006; }
 .pin.swap { box-shadow:0 0 0 3px #facc15, 0 1px 6px #000a; }

@@ -50,15 +50,18 @@ export default function App() {
   return (
     <div className="flex h-full flex-col md:flex-row">
       <aside className={`z-[1000] flex flex-col bg-white shadow-lg md:w-80 ${open ? 'h-3/5' : 'h-auto'} md:h-full`}>
-        <header className="flex items-center justify-between border-b p-3">
-          <h1 className="text-base font-bold">Noche de los Museos 2026</h1>
-          <button className="rounded border px-2 py-1 text-sm md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <header className="flex items-center justify-between gap-3 bg-ndm-navy px-3 py-3 text-white">
+          <div className="min-w-0">
+            <img src="/ndm-logo-blanco.svg" alt="Asociación Noche de los Museos" className="h-10 w-auto" />
+            <h1 className="mt-1 text-xs font-light tracking-wide text-ndm-sky">Rutas 2026 · 7 de noviembre · 18 h</h1>
+          </div>
+          <button className="shrink-0 rounded-full border border-white/70 px-3 py-1 text-sm font-semibold md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>
             {open ? 'Ocultar' : 'Rutas'}
           </button>
         </header>
         <div className={`${open ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col md:flex`}>
           <div className="flex flex-wrap gap-2 p-3">
-            <Chip active={sel === 'ALL'} color="#334155" onClick={() => setSel('ALL')}>Todas</Chip>
+            <Chip active={sel === 'ALL'} color="#001e47" onClick={() => setSel('ALL')}>Todas</Chip>
             {keys.map((k) => (
               <Chip key={k} active={sel === k} color={routes[k].color} onClick={() => setSel(k)}>{k}</Chip>
             ))}
@@ -104,6 +107,10 @@ export default function App() {
             ))}
           </ol>
         </div>
+        <footer className={`${open ? 'block' : 'hidden'} border-t px-3 py-2 text-[11px] leading-4 text-slate-500 md:block`}>
+          Mapa no oficial. Datos de la{' '}
+          <a className="underline" href="https://www.nochedemuseos.org.py" target="_blank" rel="noreferrer">Asociación Noche de los Museos</a>.
+        </footer>
       </aside>
       <main ref={mapEl} className="min-h-0 flex-1" aria-label="Mapa de rutas" />
     </div>
