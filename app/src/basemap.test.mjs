@@ -23,7 +23,7 @@ test('cada fuente de texto del estilo existe en public/map/fonts (rango Latin b�
   for (const f of fonts) assert.ok(existsSync(new URL(`../public/map/fonts/${f}/0-255.pbf`, import.meta.url)), f)
 })
 
-test('sprites presentes y, si existe, asuncion.pmtiles es válido (el archivo no va en git: ver README)', () => {
+test('sprites presentes y, si existe, asuncion.pmtiles es válido (va en Git LFS: ver README)', () => {
   const tiles = new URL('../public/asuncion.pmtiles', import.meta.url)
   if (existsSync(tiles)) assert.ok(statSync(tiles).size > 1e6)
   for (const p of ['map/sprites/light.json', 'map/sprites/light.png', 'map/sprites/light@2x.png'])
