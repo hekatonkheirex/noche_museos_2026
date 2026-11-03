@@ -58,3 +58,17 @@ test('cierres: cada parada con horario de cierre existe en data.json', () => {
   const names = new Set(Object.values(d.routes).flat().map((s) => s.nombre))
   for (const [n, h] of Object.entries(c)) { assert.ok(names.has(n), n); assert.match(h, /^\d{2}:\d{2}$/) }
 })
+
+test('MEF: en la esquina de Palma y Chile, en diagonal al Panteón (no a mitad de cuadra por el geocodificador)', () => {
+  const stops = JSON.parse(readFileSync(new URL('../app/src/data.json', import.meta.url), 'utf8')).routes
+  const find = (route, nombre) => stops[route].find((s) => s.nombre.includes(nombre))
+  const m = (a, b) => Math.hypot((a.lat - b.lat) * 111_000, (a.lon - b.lon) * 100_600) // metros (aprox. a la latitud de Asunción)
+  const CORNER = { lat: -25.281969, lon: -57.635142 } // intersección Palma / Chile: vértice donde gira el recorrido Panteón -> MEF
+  for (const r of ['A', 'B']) {
+    const mef = find(r, 'Economía y Finanzas'), pan = find(r, 'Panteón')
+    assert.ok(m(mef, CORNER) < 25, `${r}: el MEF está a ${Math.round(m(mef, CORNER))} m de la esquina`)
+    assert.ok(mef.lat > pan.lat, `${r}: el MEF queda al norte del Panteón (esquina opuesta)`)
+    assert.ok(m(mef, pan) > 25 && m(mef, pan) < 80, `${r}: a ${Math.round(m(mef, pan))} m del Panteón`)
+    assert.equal(mef.approx, false)
+  }
+})
