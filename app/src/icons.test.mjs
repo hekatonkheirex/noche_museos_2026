@@ -30,3 +30,21 @@ test('index.html enlaza los tres íconos y los archivos existen', () => {
 test('index.html carga el script de Vercel Web Analytics', () => {
   assert.ok(html.includes('src="/_vercel/insights/script.js"'))
 })
+
+const png = (f) => { const b = pub(f); return [b.readUInt32BE(16), b.readUInt32BE(20)] }
+
+test('metadatos para compartir: descripción, Open Graph con imagen absoluta, tarjeta grande, canonical y manifest', () => {
+  for (const frag of ['name="description"', 'rel="canonical"', 'rel="manifest" href="/manifest.webmanifest"', 'property="og:title"', 'property="og:description"', 'property="og:image:width" content="1200"', 'property="og:image:height" content="630"', 'name="twitter:card" content="summary_large_image"'])
+    assert.ok(html.includes(frag), frag)
+  assert.match(html, /property="og:image" content="https:\/\/[^"]+\/og\.png"/) // URL absoluta (WhatsApp/Instagram no resuelven relativas)
+  assert.deepEqual(png('og.png'), [1200, 630])
+})
+
+test('manifest: JSON válido, instalable (nombre, inicio, display, íconos 192 y 512 + maskable) y los íconos existen con su tamaño', () => {
+  const m = JSON.parse(pub('manifest.webmanifest').toString())
+  assert.ok(m.name && m.short_name && m.start_url === '/' && m.display === 'standalone' && m.theme_color === '#001e47')
+  const sizes = m.icons.map((i) => i.sizes)
+  assert.ok(sizes.includes('192x192') && sizes.includes('512x512'))
+  assert.ok(m.icons.some((i) => i.purpose === 'maskable'))
+  for (const i of m.icons) { const n = Number(i.sizes.split('x')[0]); assert.deepEqual(png(i.src.slice(1)), [n, n], i.src) }
+})

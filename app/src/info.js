@@ -44,9 +44,9 @@ export function infoHtml(f) {
   const igs = instagrams(f.instagram)
   if (igs.length) more.push(row('Instagram', igs.map((h) => link(`https://www.instagram.com/${h}/`, `@${h}`)).join(' · ')))
   if (f.facebook) more.push(row('Facebook', esc(f.facebook)))
-  more.push('<div style="margin-top:6px;color:#64748b;font-size:11px">Fuente: nochedemuseos.org.py</div>')
+  more.push('<div style="margin-top:6px;color:#64748b;font-size:12px">Fuente: nochedemuseos.org.py</div>')
 
-  return `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:12px;line-height:1.45">${main.join('')}` +
+  return `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.5">${main.join('')}` +
     `<details style="margin-top:4px"><summary style="cursor:pointer;font-weight:600">Más información</summary>` +
     `<div style="max-height:170px;overflow:auto;margin-top:4px">${more.join('')}</div></details></div>`
 }

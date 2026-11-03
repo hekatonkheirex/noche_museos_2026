@@ -39,7 +39,9 @@ export default function App() {
 
   useEffect(() => {
     // maxBounds = zona de las teselas propias (public/asuncion.pmtiles); fuera de ella no hay mapa base
-    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxZoom: 19, maxBounds: BOUNDS }).setView([-25.2867, -57.6333], 14)
+    map.current = L.map(mapEl.current, { zoomControl: false, minZoom: 10, maxZoom: 19, maxBounds: BOUNDS }).setView([-25.2867, -57.6333], 14)
+    // Zoom arriba a la izquierda en escritorio; en pantallas táctiles abajo a la izquierda (los popups ocupan casi todo el ancho y lo tapaban)
+    L.control.zoom({ position: window.matchMedia('(pointer: coarse)').matches ? 'bottomleft' : 'topleft' }).addTo(map.current)
     const gl = L.maplibreGL({ style: buildStyle(location.origin) }).addTo(map.current)
     // Respaldo: si las teselas propias fallan (no cargan o error de red), cambiar a OpenFreeMap una sola vez
     const glMap = gl.getMaplibreMap()
@@ -141,11 +143,11 @@ export default function App() {
         const icon = L.divIcon({
           className: '',
           iconSize: [size, size],
-          html: `<div class="pin${s.swap ? ' swap' : ''}" style="width:${size}px;height:${size}px;background:${s.approx ? '#fff' : r.color};color:${s.approx ? r.color : '#fff'};border:2px ${s.approx ? 'dashed' : 'solid'} ${r.color}">${sel === 'ALL' ? (s.swap ? '⇄' : '') : s.orden}</div>`,
+          html: `<div class="pin${s.swap ? ' swap' : ''}" style="width:${size}px;height:${size}px;background:${s.approx ? '#fff' : r.ink};color:${s.approx ? r.ink : '#fff'};border:2px ${s.approx ? 'dashed' : 'solid'} ${r.ink}">${sel === 'ALL' ? (s.swap ? '⇄' : '') : s.orden}</div>`,
         })
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`, { maxWidth: 300 }) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 11px system-ui;color:#475569">Llegar</span>${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 11px system-ui;color:#475569">Pedir viaje</span>${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div>`)
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`, { maxWidth: 300 }) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Llegar</span>${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Pedir viaje</span>${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div>`)
           .addTo(g)
         pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size })
       }
@@ -210,24 +212,25 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col md:flex-row">
-      <aside className={`z-[1000] flex flex-col bg-white shadow-lg md:w-80 ${open ? 'h-3/5' : 'h-auto'} md:h-full`}>
+      <aside className={`z-[1000] flex flex-col bg-white shadow-lg md:w-80 ${open ? 'h-[72%]' : 'h-auto'} md:h-full`}>
         <header className="flex items-center justify-between gap-3 bg-ndm-navy px-3 py-3 text-white">
           <div className="min-w-0">
-            <img src="/ndm-2026-logo.png" alt="Noche de los Museos 2026" width="104" height="48" className="h-12 w-auto" />
-            <h1 className="mt-1 text-xs font-light tracking-wide text-ndm-sky">Rutas · 7 de noviembre · 18 h</h1>
+            <h1 className="sr-only">Noche de los Museos 2026 · Mapa de rutas</h1>
+            <img src="/ndm-2026-logo.png" alt="" width="104" height="48" className="h-12 w-auto" />
+            <p className="mt-1 text-[13px] font-normal tracking-wide text-ndm-sky">Rutas · 7 de noviembre · 18 h</p>
           </div>
-          <button className="shrink-0 rounded-full border border-white/70 px-3 py-1 text-sm font-semibold md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>
+          <button className="shrink-0 rounded-full border border-white/70 px-4 py-1 text-sm font-semibold pointer-coarse:min-h-11 md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>
             {open ? 'Ocultar' : 'Rutas'}
           </button>
         </header>
         <div className={`${open ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col md:flex`}>
-          <div className="flex flex-wrap gap-2 p-3">
+          <div className="flex gap-2 overflow-x-auto p-3 [scrollbar-width:none] md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden">
             <Chip active={sel === 'ALL'} color="#001e47" onClick={() => setSel('ALL')}>Todas</Chip>
             {keys.map((k) => (
-              <Chip key={k} active={sel === k} color={routes[k].color} onClick={() => setSel(k)}>{k}</Chip>
+              <Chip key={k} active={sel === k} color={routes[k].ink} onClick={() => setSel(k)}>{k}</Chip>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-xs text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-[13px] text-slate-600">
             <span className="flex items-center gap-1"><Pill kind="swap">⇄ A ↔ B</Pill> cambio de ruta</span>
             <span className="flex items-center gap-1"><Pill kind="time">Hasta las 22:00</Pill> cierra antes</span>
             <span className="flex items-center gap-1"><span aria-hidden="true" className="text-base leading-none text-slate-700">➤</span> sentido del recorrido</span>
@@ -235,12 +238,12 @@ export default function App() {
           <ol className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
             {shown.map((k) => (
               <li key={k} className="mb-3">
-                <p className="mb-1 font-semibold" style={{ color: routes[k].color }}>Ruta {k} · {routes[k].stops.length} paradas{routes[k].path && ` · ${fmt(routes[k].path)}`}</p>
+                <p className="mb-1 font-semibold" style={{ color: routes[k].ink }}>Ruta {k} · {routes[k].stops.length} paradas{routes[k].path && ` · ${fmt(routes[k].path)}`}</p>
                 <ol className="space-y-1">
                   {routes[k].stops.map((s) => (
                     <li key={s.orden}>
                       <button
-                        className="flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-slate-100"
+                        className="flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-slate-100 pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-2"
                         onClick={() => openStop(k, s)}
                       >
                         <span className="w-6 shrink-0 pt-px text-right font-mono text-slate-500">{s.orden}.</span>
@@ -269,7 +272,7 @@ export default function App() {
             ))}
           </ol>
         </div>
-        <footer className={`${open ? 'block' : 'hidden'} border-t px-3 py-2 text-[11px] leading-4 text-slate-500 md:block`}>
+        <footer className={`${open ? 'block' : 'hidden'} border-t px-3 py-2 text-xs leading-4 text-slate-500 md:block`}>
           Mapa no oficial. Datos de la{' '}
           <a className="underline" href="https://www.nochedemuseos.org.py" target="_blank" rel="noreferrer">Asociación Noche de los Museos</a>.
         </footer>
@@ -294,10 +297,10 @@ export default function App() {
   )
 }
 
-const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-2.5 text-sm font-semibold text-white shadow-lg'
+const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-3 text-sm font-semibold text-white shadow-lg'
 
 // attrs (opcional): atributos HTML ya escapados (Bolt lo usa para su comportamiento propio, ver popupopen)
-const navLink = (href, text, attrs = '') => `<a href="${href}" target="_blank" rel="noopener noreferrer" ${attrs} style="background:#001e47;color:#fff;border-radius:9999px;padding:3px 9px;font:600 11px/1.5 system-ui;text-decoration:none;white-space:nowrap">↗ ${text}</a>`
+const navLink = (href, text, attrs = '') => `<a class="navpill" href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}>↗ ${text}</a>`
 
 const fmt = (p) => `${(p.distance / 1000).toFixed(1)} km · ${Math.round(p.duration / 60)} min en bus`
 
@@ -305,16 +308,17 @@ const PILL = {
   swap: { cls: 'bg-yellow-100 text-yellow-900 ring-yellow-400', css: 'background:#fef9c3;color:#713f12;border-color:#facc15' },
   time: { cls: 'bg-slate-100 text-slate-700 ring-slate-300', css: 'background:#f1f5f9;color:#334155;border-color:#cbd5e1' },
 }
-const pillHtml = (kind, text) => `<span style="${PILL[kind].css};border:1px solid;border-radius:9999px;padding:1px 7px;font:600 11px/1.5 system-ui;white-space:nowrap">${text}</span>`
+const pillHtml = (kind, text) => `<span style="${PILL[kind].css};border:1px solid;border-radius:9999px;padding:1px 8px;font:600 12px/1.5 system-ui;white-space:nowrap">${text}</span>`
 function Pill({ kind, title, children }) {
-  return <span title={title} className={`inline-block whitespace-nowrap rounded-full px-2 py-px text-[11px] font-semibold leading-5 ring-1 ring-inset ${PILL[kind].cls}`}>{children}</span>
+  return <span title={title} className={`inline-block whitespace-nowrap rounded-full px-2 py-px text-xs font-semibold leading-5 ring-1 ring-inset ${PILL[kind].cls}`}>{children}</span>
 }
 
 function Chip({ active, color, onClick, children }) {
   return (
     <button
       onClick={onClick}
-      className="rounded-full border-2 px-3 py-1 text-sm font-semibold"
+      aria-pressed={active}
+      className="shrink-0 rounded-full border-2 px-3 py-1 text-sm font-semibold pointer-coarse:min-h-11 pointer-coarse:min-w-11"
       style={{ borderColor: color, background: active ? color : '#fff', color: active ? '#fff' : color }}
     >
       {children}

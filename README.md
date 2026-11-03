@@ -50,6 +50,16 @@ Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide l
 
 La app registra un service worker (`app/src/sw.js`, plugin `vite-plugin-pwa`). Tras la primera visita guarda la app, la fuente Montserrat (alojada en el sitio) y, en segundo plano, el mapa completo (`asuncion.pmtiles`, 10 MB; no lo hace con "ahorro de datos"). Desde entonces abre sin red. Solo funciona en el build de producción (en `npm run dev` no se registra). Al regenerar las teselas con `scripts/build-tiles.sh`, subir `TILES_CACHE` en `app/src/tiles-handler.js` (`tiles-v2` a `tiles-v3`) para que los teléfonos las vuelvan a bajar.
 
+## Accesibilidad y pantallas táctiles
+
+- **Contraste:** `app/src/colors.js` tiene `COLORS` (líneas y flechas, vivos) e `INK` (texto de rutas y relleno de pines, con al menos 4,5:1 sobre blanco; C, D y F son más oscuros). El test falla si una ruta nueva no llega.
+- **Táctil:** en `pointer: coarse` los chips, filas de la lista, botones del popup, zoom y cerrar popup miden 44 px. El zoom pasa abajo a la izquierda (arriba tapaba el título del popup) y los chips van en una fila con scroll.
+- **Teclado y lectores:** los chips tienen `aria-pressed`, el foco es un anillo de dos tonos (`:focus-visible` en `app/src/index.css`) y el `h1` es "Noche de los Museos 2026 · Mapa de rutas".
+
+## Vista previa al compartir e instalación
+
+`app/index.html` tiene descripción, Open Graph y tarjeta grande (`og.png`, 1200x630), canonical y `manifest.webmanifest` (íconos 192, 512 y maskable). Se generan con `python3 scripts/make-icons.py`. Para probar la vista previa: https://developers.facebook.com/tools/debug/ (WhatsApp usa lo mismo).
+
 ## Íconos
 
 `favicon.ico`, `favicon-32.png` y `apple-touch-icon.png` (en `app/public/`) salen de la M dorada del logo oficial: `python3 scripts/make-icons.py` (requiere Pillow) los regenera desde `ndm-2026-logo.png`.

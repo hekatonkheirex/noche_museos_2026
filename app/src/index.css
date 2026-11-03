@@ -21,3 +21,17 @@ body { font-family: var(--font-sans); color: var(--color-ndm-ink); }
 .leaflet-container { font-family: inherit; background: #e2dfda; } /* = color de tierra del estilo claro de Protomaps */
 .pin { display:grid; place-items:center; border-radius:9999px; color:#fff; font:700 12px/1 system-ui; border:2px solid #fff; box-shadow:0 1px 4px #0006; }
 .pin.swap { box-shadow:0 0 0 3px #facc15, 0 1px 6px #000a; }
+
+/* Foco visible en dos tonos: se ve sobre blanco (borde azul oscuro) y sobre el encabezado azul (aro celeste) */
+:focus-visible { outline: 2px solid #001e47; outline-offset: 2px; box-shadow: 0 0 0 4px #66a8d8; }
+
+/* Botones del popup (Google Maps, Waze, Uber, Bolt) */
+.navpill { display: inline-flex; align-items: center; background: #001e47; color: #fff; border-radius: 9999px; padding: 6px 12px; font: 600 13px/1.3 system-ui; text-decoration: none; white-space: nowrap; }
+.leaflet-popup-content { font-size: 14px; line-height: 1.45; }
+
+/* Pantallas táctiles: objetivos de al menos 44 px (zoom, cerrar popup, botones del popup) */
+@media (pointer: coarse) {
+  .navpill { min-height: 44px; padding: 0 16px; font-size: 14px; }
+  .leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 22px; }
+  .leaflet-container a.leaflet-popup-close-button { width: 44px; height: 44px; font-size: 26px; line-height: 44px; padding: 0; }
+}

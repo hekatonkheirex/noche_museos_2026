@@ -14,8 +14,8 @@ export default defineConfig({
       injectRegister: false, // el registro lo hace src/offline.js
       manifest: false,
       injectManifest: {
-        globPatterns: ['**/*.{html,js,mjs,css,png,ico,json,pbf,woff2}'],
-        globIgnores: ['asuncion.pmtiles'],
+        globPatterns: ['**/*.{html,js,mjs,css,png,ico,json,pbf,woff2,webmanifest}'],
+        globIgnores: ['asuncion.pmtiles', 'og.png'], // og.png solo lo piden los rastreadores de vistas previas
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
     }),
