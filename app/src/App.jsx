@@ -7,7 +7,7 @@ import { arrowHtml, arrowsAlong } from './arrows.js'
 import { laneUnits, offsetPath } from './lanes.js'
 import { esc, infoHtml } from './info.js'
 import museos from './museos-info.json' // ficha de cada parada (scripts/build-info.mjs)
-import { BOLT_URL, destinoTexto, googleMapsUrl, uberUrl, wazeUrl } from './links.js'
+import { BOLT_URL, boltTarget, destinoTexto, googleMapsUrl, uberUrl, wazeUrl } from './links.js'
 import { spread } from './spread.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
@@ -77,15 +77,20 @@ export default function App() {
       // Con el seguimiento activo, los fallos puntuales (señal débil) se ignoran: se conserva la última posición
       if (trRef.current.mode === 'wait') setMsg(errorMessage(e.code))
     })
-    // Enlaces con data-copy (Bolt): al tocarlos se copia el destino y se avisa. El enlace se abre igual (comportamiento normal del <a>).
+    // Bolt no tiene enlace universal: se intenta abrir la app con el destino (Android: intent al paquete; iOS: esquema taxify://) con respaldo a bolt.eu.
+    // Además se copia el destino por si la app abre sin él. En computadora se abre bolt.eu (el <a> normal).
     map.current.on('popupopen', (e) => {
-      for (const el of e.popup.getElement()?.querySelectorAll('a[data-copy]') ?? []) {
+      for (const el of e.popup.getElement()?.querySelectorAll('a[data-bolt]') ?? []) {
         if (el.dataset.bound) continue
         el.dataset.bound = '1'
-        el.addEventListener('click', async () => {
-          const text = el.dataset.copy
-          try { await navigator.clipboard.writeText(text); setMsg(`Destino copiado: pegalo en Bolt (“${text}”).`) }
-          catch { setMsg(`Escribí este destino en Bolt: ${text}`) }
+        el.addEventListener('click', (ev) => {
+          const { lat, lon, name, copy } = el.dataset
+          navigator.clipboard?.writeText(copy).then(() => setMsg(`Destino copiado por si Bolt no lo trae: “${copy}”.`), () => {})
+          const t = boltTarget(navigator.userAgent, lat, lon, name)
+          if (t.url === BOLT_URL) return // computadora: el enlace abre bolt.eu en pestaña nueva
+          ev.preventDefault()
+          window.location.href = t.url
+          if (t.appScheme) setTimeout(() => { if (!document.hidden) window.location.href = BOLT_URL }, 1800) // iOS sin la app: el esquema no abre nada
         })
       }
     })
@@ -140,7 +145,7 @@ export default function App() {
         })
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`, { maxWidth: 300 }) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 11px system-ui;color:#475569">Cómo llegar</span>${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 11px system-ui;color:#475569">Pedir un viaje</span>${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', destinoTexto(s.nombre, museos[s.nombre]?.direccion))}</div>`)
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`, { maxWidth: 300 }) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 11px system-ui;color:#475569">Llegar</span>${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 11px system-ui;color:#475569">Pedir viaje</span>${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div>`)
           .addTo(g)
         pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size })
       }
@@ -167,7 +172,7 @@ export default function App() {
         const r = routes[k]
         const pts = offsetPath(paths[k].map((ll) => m.project(ll, z)), units[k], weight + 1)
         L.polyline(pts.map((p) => m.unproject([p.x, p.y], z)), { color: r.color, weight, opacity: all ? 0.7 : 0.9 }).addTo(lines)
-        for (const p of arrowsAlong(pts, all ? 120 : 80, view)) {
+        for (const p of arrowsAlong(pts, all ? 240 : 160, view)) {
           const icon = L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], html: arrowHtml(r.color, size, p.angle) })
           L.marker(m.unproject([p.x, p.y], z), { icon, interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(arrows)
         }
@@ -291,8 +296,8 @@ export default function App() {
 
 const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-2.5 text-sm font-semibold text-white shadow-lg'
 
-// copy (opcional): texto que se copia al portapapeles al tocar el enlace (Bolt no admite pre-cargar el destino)
-const navLink = (href, text, copy) => `<a href="${href}" target="_blank" rel="noopener noreferrer"${copy ? ` data-copy="${esc(copy)}"` : ''} style="background:#001e47;color:#fff;border-radius:9999px;padding:3px 10px;font:600 11px/1.5 system-ui;text-decoration:none">↗ ${text}</a>`
+// attrs (opcional): atributos HTML ya escapados (Bolt lo usa para su comportamiento propio, ver popupopen)
+const navLink = (href, text, attrs = '') => `<a href="${href}" target="_blank" rel="noopener noreferrer" ${attrs} style="background:#001e47;color:#fff;border-radius:9999px;padding:3px 9px;font:600 11px/1.5 system-ui;text-decoration:none;white-space:nowrap">↗ ${text}</a>`
 
 const fmt = (p) => `${(p.distance / 1000).toFixed(1)} km · ${Math.round(p.duration / 60)} min en bus`
 
