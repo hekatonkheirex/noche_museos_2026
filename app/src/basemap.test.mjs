@@ -29,3 +29,8 @@ test('sprites presentes y, si existe, asuncion.pmtiles es válido (va en Git LFS
   for (const p of ['map/sprites/light.json', 'map/sprites/light.png', 'map/sprites/light@2x.png'])
     assert.ok(statSync(new URL(`../public/${p}`, import.meta.url)).size > 1000, p)
 })
+
+test('fondo = color de tierra (sin bandas grises fuera del recorte)', () => {
+  const bg = s.layers.find((l) => l.type === 'background')
+  assert.equal(bg.paint['background-color'], '#e2dfda')
+})
