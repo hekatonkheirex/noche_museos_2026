@@ -362,7 +362,7 @@ export default function App() {
           >
             <span aria-hidden="true" className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
           </button>
-          <div className="flex shrink-0 gap-2 overflow-x-auto px-3 pb-3 pt-1 [scrollbar-width:none] md:flex-wrap md:overflow-visible md:p-3 [&::-webkit-scrollbar]:hidden">
+          <div className="flex shrink-0 gap-1.5 overflow-x-auto px-3 md:gap-2 pb-3 pt-1 [scrollbar-width:none] md:flex-wrap md:overflow-visible md:p-3 [&::-webkit-scrollbar]:hidden">
             <Chip active={sel === 'ALL'} ink="#001e47" night="#e2e8f0" onClick={() => pick('ALL')}>Todas</Chip>
             {keys.map((k) => (
               <Chip key={k} active={sel === k} ink={routes[k].ink} night={routes[k].night} onClick={() => pick(k)}>{k}</Chip>
@@ -517,7 +517,7 @@ function Chip({ active, ink, night, onClick, children }) {
       onClick={onClick}
       aria-pressed={active}
       style={{ '--ink': ink, '--night': night }}
-      className={`shrink-0 rounded-full border-2 border-(color:--ink) px-3 py-1 text-sm font-semibold pointer-coarse:min-h-11 pointer-coarse:min-w-11 dark:border-(color:--night) ${active ? 'bg-(--ink) text-white' : 'bg-white text-(color:--ink) dark:bg-slate-900 dark:text-(color:--night)'}`}
+      className={`rounded-full border-2 border-(color:--ink) px-3 py-1 text-sm font-semibold max-md:min-w-9 max-md:shrink max-md:px-2 pointer-coarse:min-h-11 md:shrink-0 md:pointer-coarse:min-w-11 dark:border-(color:--night) ${active ? 'bg-(--ink) text-white' : 'bg-white text-(color:--ink) dark:bg-slate-900 dark:text-(color:--night)'}`}
     >
       {children}
     </button>
