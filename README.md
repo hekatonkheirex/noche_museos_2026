@@ -21,6 +21,8 @@ Intercambiadores: `app/src/intercambiadores.json`. Horarios de cierre anticipado
 
 Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, función pura `arrowsAlong` con tests). Se colocan cada ~80 px (una ruta) o ~120 px (todas) de pantalla sobre el recorrido y se recalculan al cambiar el zoom. Los tramos que comparten calle (entre rutas, o la ida y el regreso de una misma ruta) se reparten en carriles paralelos (`app/src/lanes.js`, función pura `laneUnits` con tests): cada sentido va por la derecha, como el tránsito. El desplazamiento es en píxeles y se recalcula con el zoom.
 
+Las paradas que se tapan entre sí (porque el zoom las junta, o porque una parada compartida aparece en varias rutas) se separan en abanico (`app/src/spread.js`, función pura `spread` con tests) y una línea guía une cada pin con su ubicación real. Al acercar, vuelven a su lugar.
+
 ## Dónde estoy
 
 Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide la ubicación al navegador (solo HTTPS) y la sigue mientras camina: punto con radio de precisión, el mapa acompaña. Si se arrastra el mapa deja de acompañar y aparece "Centrar"; "Detener seguimiento" lo apaga. Fuera de la zona del mapa (`BOUNDS`, igual al recorte de teselas) avisa una vez en vez de mover el mapa. Los estados del seguimiento están en la función pura `track` (con tests). Usa GPS de alta precisión, que gasta batería; por eso arranca solo con el botón y se apaga con "Detener". Funciona sin conexión.

@@ -5,6 +5,7 @@ import { Protocol } from 'pmtiles'
 import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE, track, TRACK_OFF } from './locate.js'
 import { arrowHtml, arrowsAlong } from './arrows.js'
 import { laneUnits, offsetPath } from './lanes.js'
+import { spread } from './spread.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
@@ -20,6 +21,8 @@ export default function App() {
   const map = useRef(null)
   const layer = useRef(null)
   const lineLayer = useRef(null) // líneas de las rutas
+  const leaderLayer = useRef(null) // líneas guía de cada parada desplazada a su ubicación real
+  const pins = useRef([]) // paradas dibujadas: { marker, ll, size }
   const arrowLayer = useRef(null) // flechas de sentido
   const me = useRef(null) // marcador de "dónde estoy"
   const [msg, setMsg] = useState('') // aviso de ubicación
@@ -44,6 +47,7 @@ export default function App() {
     })
     layer.current = L.layerGroup().addTo(map.current)
     lineLayer.current = L.layerGroup().addTo(map.current)
+    leaderLayer.current = L.layerGroup().addTo(map.current)
     arrowLayer.current = L.layerGroup().addTo(map.current)
     me.current = L.layerGroup().addTo(map.current)
     map.current.on('locationfound', (e) => {
@@ -98,6 +102,7 @@ export default function App() {
   useEffect(() => {
     const g = layer.current
     g.clearLayers()
+    pins.current = []
     const bounds = []
     for (const k of shown) {
       const r = routes[k]
@@ -111,9 +116,10 @@ export default function App() {
           html: `<div class="pin${s.swap ? ' swap' : ''}" style="width:${size}px;height:${size}px;background:${s.approx ? '#fff' : r.color};color:${s.approx ? r.color : '#fff'};border:2px ${s.approx ? 'dashed' : 'solid'} ${r.color}">${sel === 'ALL' ? (s.swap ? '⇄' : '') : s.orden}</div>`,
         })
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
-        L.marker([s.lat, s.lon], { icon })
+        const marker = L.marker([s.lat, s.lon], { icon })
           .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}`)
           .addTo(g)
+        pins.current.push({ marker, ll: [s.lat, s.lon], size })
       }
     }
     if (bounds.length) map.current.fitBounds(bounds, { padding: [40, 40] })
@@ -121,7 +127,7 @@ export default function App() {
 
   // Líneas y flechas: los tramos que comparten calle se reparten en carriles paralelos (lanes.js); se recalcula al cambiar el zoom
   useEffect(() => {
-    const m = map.current, lines = lineLayer.current, arrows = arrowLayer.current
+    const m = map.current, lines = lineLayer.current, arrows = arrowLayer.current, leaders = leaderLayer.current
     const all = sel === 'ALL'
     const weight = all ? 3 : 5
     const size = all ? 14 : 20
@@ -141,9 +147,22 @@ export default function App() {
         }
       }
     }
-    draw()
-    m.on('zoomend', draw)
-    return () => m.off('zoomend', draw)
+    // Paradas que se tapan entre sí (en este zoom): se separan y una línea guía marca su ubicación real
+    const declutter = () => {
+      const z = m.getZoom()
+      const orig = pins.current.map((p) => m.project(p.ll, z))
+      const out = spread(pins.current.map((p, i) => ({ ...orig[i], r: p.size / 2 })))
+      leaders.clearLayers()
+      pins.current.forEach((p, i) => {
+        const ll = m.unproject([out[i].x, out[i].y], z)
+        p.marker.setLatLng(ll) // setLatLng mantiene abierto el popup de esa parada
+        if (Math.hypot(out[i].x - orig[i].x, out[i].y - orig[i].y) > 3) L.polyline([p.ll, ll], { color: '#334155', weight: 1.5, opacity: 0.85, interactive: false }).addTo(leaders)
+      })
+    }
+    const redraw = () => { draw(); declutter() }
+    redraw()
+    m.on('zoomend', redraw)
+    return () => m.off('zoomend', redraw)
   }, [shown, sel])
 
   return (
