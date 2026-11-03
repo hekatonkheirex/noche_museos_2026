@@ -12,6 +12,7 @@ import { spread } from './spread.js'
 import { coreBounds, pinSize } from './view.js'
 import { effectiveTheme, otherTheme, THEME_KEY } from './theme.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
+import { registerWorker, saveTiles, shouldAutoSave, tilesSaved, TILES_MB } from './offline.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
 import { routes } from './routes.js'
@@ -63,6 +64,35 @@ export default function App() {
     setHint(false)
     try { localStorage.setItem('ndm-hint', '1') } catch { /* igual */ }
   }
+  // Estados: mapa cargando, conexión, mapa de respaldo y descarga del mapa para uso sin conexión
+  const [ready, setReady] = useState(false)
+  const [online, setOnline] = useState(() => navigator.onLine)
+  const [fallback, setFallback] = useState(false)
+  const [off, setOff] = useState({ s: 'unsupported', pct: 0 }) // s: unsupported | idle | saving | saved | error
+  const [flash, setFlash] = useState(false) // "Mapa guardado" visible unos segundos
+  useEffect(() => {
+    const on = () => setOnline(true), offl = () => setOnline(false)
+    window.addEventListener('online', on); window.addEventListener('offline', offl)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', offl) }
+  }, [])
+  async function startSave() {
+    setOff({ s: 'saving', pct: 0 })
+    try {
+      const ok = await saveTiles((got, total) => setOff({ s: 'saving', pct: total ? Math.min(99, Math.round((got / total) * 100)) : 0 }))
+      setOff({ s: ok ? 'saved' : 'error', pct: 100 })
+      if (ok) setFlash(true)
+    } catch { setOff({ s: 'error', pct: 0 }) }
+  }
+  useEffect(() => {
+    (async () => {
+      if (!(await registerWorker())) return // desarrollo o sin service worker: no hay modo sin conexión
+      if (await tilesSaved()) return setOff({ s: 'saved', pct: 100 })
+      if (shouldAutoSave(navigator.connection)) startSave() // Wi-Fi o cable: se guarda sola
+      else setOff({ s: 'idle', pct: 0 }) // datos móviles o red desconocida: se pide permiso
+    })()
+  }, [])
+  useEffect(() => { if (flash) { const t = setTimeout(() => setFlash(false), 6000); return () => clearTimeout(t) } }, [flash])
+
   useEffect(() => { if (hint) { const t = setTimeout(() => setHint(false), 12000); return () => clearTimeout(t) } }, [hint])
 
   useEffect(() => {
@@ -74,9 +104,11 @@ export default function App() {
     // Respaldo: si las teselas propias fallan (no cargan o error de red), cambiar a OpenFreeMap una sola vez
     const glMap = gl.current.getMaplibreMap()
     glMap.__theme = theme
+    glMap.once('idle', () => setReady(true)) // primer dibujo completo del mapa base
     glMap.on('error', (e) => {
       if (e.sourceId !== SOURCE || glMap.__fallback) return
       glMap.__fallback = true
+      setFallback(true)
       console.warn('Teselas propias fallaron, usando OpenFreeMap', e.error)
       glMap.setStyle(FALLBACK_STYLE)
     })
@@ -179,7 +211,7 @@ export default function App() {
         const icon = pinIcon(s, r, size, sel === 'ALL')
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Llegar</span>${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Pedir viaje</span>${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div>`, { maxWidth: 300 })
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div class="navgrp"><span class="navlbl">Llegar</span><div class="navrow">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div></div><div class="navgrp"><span class="navlbl">Pedir viaje</span><div class="navrow">${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div></div>`, { minWidth: 240, maxWidth: 300, autoPanPaddingTopLeft: [12, 64], autoPanPaddingBottomRight: [12, 112] })
           .addTo(g)
         pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size, s, r })
       }
@@ -313,6 +345,7 @@ export default function App() {
         <footer className={`${open ? 'block' : 'hidden'} border-t px-3 py-2 text-xs leading-4 text-slate-500 dark:border-slate-700 dark:text-slate-400 md:block`}>
           Mapa no oficial. Datos de la{' '}
           <a className="underline" href="https://www.nochedemuseos.org.py" target="_blank" rel="noreferrer">Asociación Noche de los Museos</a>.
+          {off.s === 'saved' && <span className="block">Mapa guardado para usar sin conexión.</span>}
         </footer>
       </aside>
       <div className="relative min-h-0 flex-1">
@@ -325,15 +358,39 @@ export default function App() {
         >
           {theme === 'dark' ? <Icon d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" /> : <Icon d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />}
         </button>
-        {hint && sel === 'ALL' && (
-          <div role="note" className="absolute left-3 right-16 top-3 z-[1000] flex items-center justify-between gap-2 rounded-full bg-ndm-navy py-1.5 pl-4 pr-1.5 text-[13px] text-white shadow-lg md:left-1/2 md:right-auto md:-translate-x-1/2 md:justify-start">
-            <span><span className="md:hidden">Tocá «Rutas» y elegí un recorrido</span><span className="hidden md:inline">Elegí una ruta para ver su recorrido y sus paradas</span></span>
-            <button onClick={dismissHint} aria-label="Cerrar aviso" className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/15 pointer-coarse:h-11 pointer-coarse:w-11">
-              <Icon d="M6 6l12 12M18 6L6 18" />
-            </button>
+        <div className="absolute left-3 right-16 top-3 z-[1000] flex flex-col items-start gap-2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:items-center">
+          {hint && sel === 'ALL' && (
+            <div role="note" className="flex items-center justify-between gap-2 rounded-full bg-ndm-navy py-1.5 pl-4 pr-1.5 text-[13px] text-white shadow-lg">
+              <span><span className="md:hidden">Tocá «Rutas» y elegí un recorrido</span><span className="hidden md:inline">Elegí una ruta para ver su recorrido y sus paradas</span></span>
+              <button onClick={dismissHint} aria-label="Cerrar aviso" className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/15 pointer-coarse:h-11 pointer-coarse:w-11">
+                <Icon d="M6 6l12 12M18 6L6 18" />
+              </button>
+            </div>
+          )}
+          <div role="status" aria-live="polite" className="flex flex-col items-start gap-2 md:items-center">
+            {!ready && <StatusPill><span aria-hidden="true" className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" />Cargando mapa…</StatusPill>}
+            {!online && <StatusPill>{off.s === 'saved' ? 'Sin conexión · usando el mapa guardado' : 'Sin conexión · el mapa puede no cargar'}</StatusPill>}
+            {fallback && <StatusPill>Mapa de respaldo (OpenFreeMap)</StatusPill>}
           </div>
-        )}
+        </div>
         <div className="absolute bottom-8 right-3 z-[1000] flex max-w-[16rem] flex-col items-end gap-2">
+          {off.s === 'idle' && online && (
+            <button onClick={startSave} className="rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold text-ndm-navy shadow-lg pointer-coarse:min-h-11 dark:bg-slate-800 dark:text-slate-100">
+              Guardar mapa sin conexión ({TILES_MB} MB)
+            </button>
+          )}
+          {off.s === 'saving' && (
+            <div className="w-56 rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-ndm-navy shadow-lg dark:bg-slate-800 dark:text-slate-100">
+              Guardando mapa… {off.pct ? `${off.pct} %` : ''}
+              <progress className="mt-1 block h-1.5 w-full" max="100" value={off.pct || undefined} aria-label="Guardando el mapa para usar sin conexión" />
+            </div>
+          )}
+          {off.s === 'error' && (
+            <button onClick={startSave} className="rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold text-ndm-navy shadow-lg pointer-coarse:min-h-11 dark:bg-slate-800 dark:text-slate-100">
+              No se pudo guardar el mapa. Reintentar
+            </button>
+          )}
+          {off.s === 'saved' && flash && <p className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-ndm-navy shadow-lg dark:bg-slate-800 dark:text-slate-100">Mapa guardado: funciona sin conexión</p>}
           {msg && <p role="status" className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700 shadow-lg dark:bg-slate-800 dark:text-slate-100">{msg}</p>}
           <div className="flex gap-2">
             {tr.mode === 'on' && !tr.follow && (
@@ -361,7 +418,7 @@ const pinIcon = (s, r, size, all) => L.divIcon({
 const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-3 text-sm font-semibold text-white shadow-lg dark:bg-white dark:text-ndm-navy'
 
 // attrs (opcional): atributos HTML ya escapados (Bolt lo usa para su comportamiento propio, ver popupopen)
-const navLink = (href, text, attrs = '') => `<a class="navpill" href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}>↗ ${text}</a>`
+const navLink = (href, text, attrs = '') => `<a class="navpill" href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}>${text}</a>`
 
 const fmt = (p) => `${(p.distance / 1000).toFixed(1)} km · ${Math.round(p.duration / 60)} min en bus`
 
@@ -375,6 +432,10 @@ function Pill({ kind, title, children }) {
 }
 
 // Íconos SVG de una sola familia (trazo 2, estilo Lucide)
+function StatusPill({ children }) {
+  return <p className="flex items-center gap-2 rounded-full bg-slate-800/90 px-3 py-1.5 text-[13px] text-white shadow-lg">{children}</p>
+}
+
 function Icon({ d }) {
   return (
     <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>

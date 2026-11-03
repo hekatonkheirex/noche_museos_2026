@@ -1,14 +1,24 @@
-// Registra el service worker y, ya cargada la app, baja las teselas (25 MB) a la caché para uso sin conexión.
+// Uso sin conexión: service worker (app + teselas servidas desde caché) y descarga del mapa (10 MB) con consentimiento.
 import { prefetchTiles, TILES_CACHE } from './tiles-handler.js'
 
-export async function enableOffline() {
-  if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return
+export const TILES_URL = '/asuncion.pmtiles'
+export const TILES_MB = 10 // tamaño aproximado que se muestra en el botón (un test lo compara con el archivo real)
+
+// Descarga automática solo en redes sin costo para el usuario (Wi-Fi o cable) y sin "ahorro de datos". Safari no expone la API: allí siempre pide permiso.
+export const shouldAutoSave = (conn) => !!conn && !conn.saveData && (conn.type === 'wifi' || conn.type === 'ethernet')
+
+// Registra el service worker (app y teselas ya guardadas funcionan sin red). false en desarrollo o si el navegador no lo soporta.
+export async function registerWorker() {
+  if (!('serviceWorker' in navigator) || !import.meta.env.PROD) return false
   await navigator.serviceWorker.register('/sw.js')
   await navigator.serviceWorker.ready
-  if (navigator.connection?.saveData) return // respetar ahorro de datos
-  const idle = window.requestIdleCallback ?? ((f) => setTimeout(f, 3000))
-  idle(async () => {
-    try { await prefetchTiles('/asuncion.pmtiles', await caches.open(TILES_CACHE)) }
-    catch (e) { console.warn('No se pudo guardar el mapa para uso sin conexión', e) }
-  })
+  return true
+}
+
+export async function tilesSaved() {
+  try { return !!(await (await caches.open(TILES_CACHE)).match(TILES_URL)) } catch { return false }
+}
+
+export async function saveTiles(onProgress) {
+  return prefetchTiles(TILES_URL, await caches.open(TILES_CACHE), fetch, onProgress)
 }

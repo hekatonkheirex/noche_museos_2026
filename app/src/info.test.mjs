@@ -49,3 +49,9 @@ test('datos reales: todas las fichas generan HTML con enlaces solo tel:, mailto:
     assert.ok(!/<(script|iframe|img)\b/i.test(h), name)
   }
 })
+
+test('css: los botones del popup (.navpill) ganan a la regla de enlaces de Leaflet y quedan con texto blanco', () => {
+  const css = readFileSync(new URL('./index.css', import.meta.url), 'utf8')
+  assert.match(css, /\.leaflet-container a\.navpill\s*\{\s*color:\s*#fff/) // especificidad mayor que `.leaflet-container a`
+  assert.match(css, /\.navrow\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(/) // grilla que apila en vez de dejar un botón suelto
+})

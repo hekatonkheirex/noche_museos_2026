@@ -48,6 +48,8 @@ Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide l
 
 ## Uso sin conexión
 
+**Mapa con consentimiento:** el mapa (10 MB) ya no se baja solo con datos móviles. Si la red es Wi-Fi o cable (y sin "ahorro de datos") se guarda sola; si no, o si el navegador no informa el tipo de red (Safari), aparece el botón "Guardar mapa sin conexión (10 MB)" con barra de avance, y luego un aviso "Mapa guardado" y una línea en el pie (`app/src/offline.js`). **Estados visibles:** "Cargando mapa…", "Sin conexión · usando el mapa guardado" (o "el mapa puede no cargar" si no se guardó) y "Mapa de respaldo (OpenFreeMap)".
+
 La app registra un service worker (`app/src/sw.js`, plugin `vite-plugin-pwa`). Tras la primera visita guarda la app, la fuente Montserrat (alojada en el sitio) y, en segundo plano, el mapa completo (`asuncion.pmtiles`, 10 MB; no lo hace con "ahorro de datos"). Desde entonces abre sin red. Solo funciona en el build de producción (en `npm run dev` no se registra). Al regenerar las teselas con `scripts/build-tiles.sh`, subir `TILES_CACHE` en `app/src/tiles-handler.js` (`tiles-v2` a `tiles-v3`) para que los teléfonos las vuelvan a bajar.
 
 ## Accesibilidad y pantallas táctiles
