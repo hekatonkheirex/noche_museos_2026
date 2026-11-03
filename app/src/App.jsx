@@ -4,6 +4,7 @@ import { addProtocol, setWorkerUrl } from 'maplibre-gl'
 import { Protocol } from 'pmtiles'
 import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE, track, TRACK_OFF } from './locate.js'
 import { arrowHtml, arrowsAlong } from './arrows.js'
+import { laneUnits, offsetPath } from './lanes.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
@@ -18,6 +19,7 @@ export default function App() {
   const mapEl = useRef(null)
   const map = useRef(null)
   const layer = useRef(null)
+  const lineLayer = useRef(null) // líneas de las rutas
   const arrowLayer = useRef(null) // flechas de sentido
   const me = useRef(null) // marcador de "dónde estoy"
   const [msg, setMsg] = useState('') // aviso de ubicación
@@ -41,6 +43,7 @@ export default function App() {
       glMap.setStyle(FALLBACK_STYLE)
     })
     layer.current = L.layerGroup().addTo(map.current)
+    lineLayer.current = L.layerGroup().addTo(map.current)
     arrowLayer.current = L.layerGroup().addTo(map.current)
     me.current = L.layerGroup().addTo(map.current)
     map.current.on('locationfound', (e) => {
@@ -100,7 +103,6 @@ export default function App() {
       const r = routes[k]
       const pts = r.stops.map((s) => [s.lat, s.lon])
       bounds.push(...pts)
-      L.polyline(r.path?.geometry ?? pts, { color: r.color, weight: sel === 'ALL' ? 3 : 5, opacity: sel === 'ALL' ? 0.6 : 0.9 }).addTo(g)
       for (const s of r.stops) {
         const size = sel === 'ALL' ? (s.swap ? 18 : 12) : 26
         const icon = L.divIcon({
@@ -117,20 +119,25 @@ export default function App() {
     if (bounds.length) map.current.fitBounds(bounds, { padding: [40, 40] })
   }, [shown, sel])
 
-  // Flechas de sentido: cada `gap` píxeles sobre el recorrido, se recalculan al cambiar el zoom
+  // Líneas y flechas: los tramos que comparten calle se reparten en carriles paralelos (lanes.js); se recalcula al cambiar el zoom
   useEffect(() => {
-    const m = map.current, g = arrowLayer.current
+    const m = map.current, lines = lineLayer.current, arrows = arrowLayer.current
     const all = sel === 'ALL'
+    const weight = all ? 3 : 5
     const size = all ? 14 : 20
+    const paths = Object.fromEntries(shown.map((k) => [k, routes[k].path?.geometry ?? routes[k].stops.map((s) => [s.lat, s.lon])]))
+    const units = laneUnits(paths)
     const draw = () => {
-      g.clearLayers()
+      lines.clearLayers()
+      arrows.clearLayers()
       const z = m.getZoom()
       for (const k of shown) {
         const r = routes[k]
-        const line = r.path?.geometry ?? r.stops.map((s) => [s.lat, s.lon])
-        for (const p of arrowsAlong(line.map((ll) => m.project(ll, z)), all ? 120 : 80)) {
+        const pts = offsetPath(paths[k].map((ll) => m.project(ll, z)), units[k], weight + 1)
+        L.polyline(pts.map((p) => m.unproject([p.x, p.y], z)), { color: r.color, weight, opacity: all ? 0.7 : 0.9 }).addTo(lines)
+        for (const p of arrowsAlong(pts, all ? 120 : 80)) {
           const icon = L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], html: arrowHtml(r.color, size, p.angle) })
-          L.marker(m.unproject([p.x, p.y], z), { icon, interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(g)
+          L.marker(m.unproject([p.x, p.y], z), { icon, interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(arrows)
         }
       }
     }

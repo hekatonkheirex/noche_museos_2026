@@ -19,7 +19,7 @@ Intercambiadores: `app/src/intercambiadores.json`. Horarios de cierre anticipado
 
 ## Flechas de sentido
 
-Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, función pura `arrowsAlong` con tests). Se colocan cada ~80 px (una ruta) o ~120 px (todas) de pantalla sobre el recorrido y se recalculan al cambiar el zoom. Donde la ida y el regreso comparten calle, las flechas se ven enfrentadas.
+Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, función pura `arrowsAlong` con tests). Se colocan cada ~80 px (una ruta) o ~120 px (todas) de pantalla sobre el recorrido y se recalculan al cambiar el zoom. Los tramos que comparten calle (entre rutas, o la ida y el regreso de una misma ruta) se reparten en carriles paralelos (`app/src/lanes.js`, función pura `laneUnits` con tests): cada sentido va por la derecha, como el tránsito. El desplazamiento es en píxeles y se recalcula con el zoom.
 
 ## Dónde estoy
 
