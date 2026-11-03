@@ -35,7 +35,12 @@ Esa página solo lista 42 espacios de Asunción: 25 de nuestras 61 paradas tiene
 
 ## Ir a una parada
 
-Cada parada (en el mapa o al tocarla en la lista, que ahora abre su popup) tiene enlaces "Google Maps" y "Waze" con indicaciones desde la ubicación actual (`app/src/links.js`, URLs oficiales, sin claves). En las paradas con ubicación aproximada (calle) el destino es esa calle. Los enlaces necesitan conexión.
+Cada parada (en el mapa o al tocarla en la lista, que abre su popup) tiene dos filas de enlaces (`app/src/links.js`, sin claves ni SDK):
+
+- **Cómo llegar:** Google Maps y Waze, con indicaciones desde la ubicación actual hacia las coordenadas de la parada.
+- **Pedir un viaje:** **Uber** abre la app (o m.uber.com) con el destino ya cargado y el origen en "mi ubicación" (universal link documentado por Uber). **Bolt** no publica un enlace para pre-cargar el destino: el botón abre Bolt y **copia al portapapeles** "Nombre, dirección, Asunción" para pegarlo en "¿A dónde vas?" (con aviso en pantalla).
+
+En las paradas con ubicación aproximada (calle) el destino es esa calle. Los enlaces necesitan conexión.
 
 ## Dónde estoy
 

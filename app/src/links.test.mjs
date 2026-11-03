@@ -29,3 +29,22 @@ test('datos reales: todas las paradas ubicadas generan coordenadas válidas en a
   }
   assert.ok(n > 50)
 })
+
+test('Uber: universal link con setPickup, origen mi ubicación y destino con coordenadas y nombre (acentos y comillas incluidos)', async () => {
+  const { uberUrl } = await import('./links.js')
+  const u = new URL(uberUrl(-25.2822733, -57.6350903, 'Museo Juan Emiliano O’Leary & Cía'))
+  assert.equal(u.origin + u.pathname, 'https://m.uber.com/ul/')
+  assert.equal(u.searchParams.get('action'), 'setPickup')
+  assert.equal(u.searchParams.get('pickup'), 'my_location')
+  assert.equal(u.searchParams.get('dropoff[latitude]'), '-25.282273')
+  assert.equal(u.searchParams.get('dropoff[longitude]'), '-57.635090')
+  assert.equal(u.searchParams.get('dropoff[nickname]'), 'Museo Juan Emiliano O’Leary & Cía')
+  assert.ok(!uberUrl(0, 0, 'a&b').includes('a&b')) // el & del nombre va codificado, no corta el parámetro
+})
+
+test('Bolt: texto de destino con nombre, dirección (sin punto final) y ciudad; sin dirección usa solo nombre y ciudad', async () => {
+  const { destinoTexto, BOLT_URL } = await import('./links.js')
+  assert.equal(destinoTexto('Archivo Nacional de Asunción', 'Mariscal Estigarribia e Iturbe.'), 'Archivo Nacional de Asunción, Mariscal Estigarribia e Iturbe, Asunción')
+  assert.equal(destinoTexto('Panteón Nacional de los Héroes'), 'Panteón Nacional de los Héroes, Asunción')
+  assert.equal(new URL(BOLT_URL).protocol, 'https:')
+})
