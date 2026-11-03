@@ -517,7 +517,7 @@ function Chip({ active, ink, night, onClick, children }) {
       onClick={onClick}
       aria-pressed={active}
       style={{ '--ink': ink, '--night': night }}
-      className={`rounded-full border-2 border-(color:--ink) px-3 py-1 text-sm font-semibold max-md:min-w-8 max-md:px-2 ${children.length > 1 ? 'shrink-0' : 'max-md:shrink md:shrink-0'} pointer-coarse:min-h-11 md:pointer-coarse:min-w-11 dark:border-(color:--night) ${active ? 'bg-(--ink) text-white' : 'bg-white text-(color:--ink) dark:bg-slate-900 dark:text-(color:--night)'}`}
+      className={`rounded-full border-2 border-(color:--ink) px-3 py-1 text-sm font-semibold max-md:min-w-8 max-md:grow max-md:px-2 ${children.length > 1 ? 'shrink-0' : 'max-md:shrink md:shrink-0'} pointer-coarse:min-h-11 md:pointer-coarse:min-w-11 dark:border-(color:--night) ${active ? 'bg-(--ink) text-white' : 'bg-white text-(color:--ink) dark:bg-slate-900 dark:text-(color:--night)'}`}
     >
       {children}
     </button>
