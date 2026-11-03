@@ -17,6 +17,10 @@ Mapa de las 7 rutas (A-G) del 7 de noviembre, 18:00, Asunción. Producción: htt
 
 Intercambiadores: `app/src/intercambiadores.json`. Horarios de cierre anticipado: `app/src/cierres.json`. Ambos salen del Instagram oficial @nochedelosmuseos.
 
+## Flechas de sentido
+
+Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, función pura `arrowsAlong` con tests). Se colocan cada ~80 px (una ruta) o ~120 px (todas) de pantalla sobre el recorrido y se recalculan al cambiar el zoom. Donde la ida y el regreso comparten calle, las flechas se ven enfrentadas.
+
 ## Dónde estoy
 
 Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide la ubicación al navegador (solo HTTPS) y la sigue mientras camina: punto con radio de precisión, el mapa acompaña. Si se arrastra el mapa deja de acompañar y aparece "Centrar"; "Detener seguimiento" lo apaga. Fuera de la zona del mapa (`BOUNDS`, igual al recorte de teselas) avisa una vez en vez de mover el mapa. Los estados del seguimiento están en la función pura `track` (con tests). Usa GPS de alta precisión, que gasta batería; por eso arranca solo con el botón y se apaga con "Detener". Funciona sin conexión.

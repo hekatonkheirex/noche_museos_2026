@@ -3,6 +3,7 @@ import L from 'leaflet'
 import { addProtocol, setWorkerUrl } from 'maplibre-gl'
 import { Protocol } from 'pmtiles'
 import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE, track, TRACK_OFF } from './locate.js'
+import { arrowHtml, arrowsAlong } from './arrows.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
@@ -17,6 +18,7 @@ export default function App() {
   const mapEl = useRef(null)
   const map = useRef(null)
   const layer = useRef(null)
+  const arrowLayer = useRef(null) // flechas de sentido
   const me = useRef(null) // marcador de "dónde estoy"
   const [msg, setMsg] = useState('') // aviso de ubicación
   const [tr, setTr] = useState(TRACK_OFF) // seguimiento: { mode: off|wait|on, follow }
@@ -39,6 +41,7 @@ export default function App() {
       glMap.setStyle(FALLBACK_STYLE)
     })
     layer.current = L.layerGroup().addTo(map.current)
+    arrowLayer.current = L.layerGroup().addTo(map.current)
     me.current = L.layerGroup().addTo(map.current)
     map.current.on('locationfound', (e) => {
       const first = trRef.current.mode === 'wait'
@@ -114,6 +117,28 @@ export default function App() {
     if (bounds.length) map.current.fitBounds(bounds, { padding: [40, 40] })
   }, [shown, sel])
 
+  // Flechas de sentido: cada `gap` píxeles sobre el recorrido, se recalculan al cambiar el zoom
+  useEffect(() => {
+    const m = map.current, g = arrowLayer.current
+    const all = sel === 'ALL'
+    const size = all ? 14 : 20
+    const draw = () => {
+      g.clearLayers()
+      const z = m.getZoom()
+      for (const k of shown) {
+        const r = routes[k]
+        const line = r.path?.geometry ?? r.stops.map((s) => [s.lat, s.lon])
+        for (const p of arrowsAlong(line.map((ll) => m.project(ll, z)), all ? 120 : 80)) {
+          const icon = L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], html: arrowHtml(r.color, size, p.angle) })
+          L.marker(m.unproject([p.x, p.y], z), { icon, interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(g)
+        }
+      }
+    }
+    draw()
+    m.on('zoomend', draw)
+    return () => m.off('zoomend', draw)
+  }, [shown, sel])
+
   return (
     <div className="flex h-full flex-col md:flex-row">
       <aside className={`z-[1000] flex flex-col bg-white shadow-lg md:w-80 ${open ? 'h-3/5' : 'h-auto'} md:h-full`}>
@@ -136,6 +161,7 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-xs text-slate-600">
             <span className="flex items-center gap-1"><Pill kind="swap">⇄ A ↔ B</Pill> cambio de ruta</span>
             <span className="flex items-center gap-1"><Pill kind="time">Hasta las 22:00</Pill> cierra antes</span>
+            <span className="flex items-center gap-1"><span aria-hidden="true" className="text-base leading-none text-slate-700">➤</span> sentido del recorrido</span>
           </div>
           <ol className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
             {shown.map((k) => (
