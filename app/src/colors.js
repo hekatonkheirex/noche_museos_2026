@@ -13,3 +13,7 @@ export function contrast(a, b) {
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x)
   return (hi + 0.05) / (lo + 0.05)
 }
+
+// Oro del logo (tono medio de los píxeles dorados de la "M": #CEA354). Marca los intercambiadores (halo del pin y pastilla).
+export const GOLD = '#cea354'
+export const SWAP = { bg: '#f8efd9', fg: '#5a3f00', ring: GOLD }

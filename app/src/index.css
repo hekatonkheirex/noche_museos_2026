@@ -22,7 +22,7 @@ html, body, #root { height: 100%; margin: 0; }
 body { font-family: var(--font-sans); color: var(--color-ndm-ink); }
 .leaflet-container { font-family: inherit; background: #e2dfda; } /* = color de tierra del estilo claro de Protomaps */
 .pin { display:grid; place-items:center; border-radius:9999px; color:#fff; font:700 12px/1 system-ui; border:2px solid #fff; box-shadow:0 1px 4px #0006; }
-.pin.swap { box-shadow:0 0 0 3px #facc15, 0 1px 6px #000a; }
+.pin.swap { box-shadow:0 0 0 3px #cea354, 0 1px 6px #000a; } /* oro del logo (GOLD en colors.js) */
 
 /* Foco visible en dos tonos: se ve sobre blanco (borde azul oscuro) y sobre el encabezado azul (aro celeste) */
 :focus-visible { outline: 2px solid #001e47; outline-offset: 2px; box-shadow: 0 0 0 4px #66a8d8; }
@@ -52,3 +52,15 @@ body { font-family: var(--font-sans); color: var(--color-ndm-ink); }
 [data-theme=dark] .leaflet-bar a:hover { background: #334155; }
 [data-theme=dark] .leaflet-control-attribution { background: rgba(15, 23, 42, 0.8); color: #cbd5e1; }
 [data-theme=dark] .leaflet-control-attribution a { color: #93c5fd; }
+
+/* Popups: colores en clases para poder oscurecerlos en modo noche */
+.pop-sep { border-top: 1px solid #e2e8f0; }
+.pop-muted { color: #64748b; }
+.pop-link { color: #1d4ed8; text-decoration: underline; overflow-wrap: anywhere; }
+[data-theme=dark] .leaflet-popup-content-wrapper, [data-theme=dark] .leaflet-popup-tip { background: #0f172a; color: #e2e8f0; }
+[data-theme=dark] .leaflet-container a.leaflet-popup-close-button { color: #cbd5e1; }
+[data-theme=dark] .pop-sep { border-top-color: #334155; }
+[data-theme=dark] .pop-muted, [data-theme=dark] .navlbl { color: #94a3b8; }
+[data-theme=dark] .leaflet-container a.pop-link { color: #93c5fd; }
+[data-theme=dark] .navpill { background: #e2e8f0; }
+[data-theme=dark] .leaflet-container a.navpill { color: #0f172a; }

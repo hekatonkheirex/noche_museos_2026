@@ -64,6 +64,14 @@ La app registra un service worker (`app/src/sw.js`, plugin `vite-plugin-pwa`). T
 - **Modo noche** (el evento es de 18 a 23 h): botón de luna/sol arriba a la derecha del mapa. Sigue al sistema (`prefers-color-scheme`) hasta que la persona elige; la elección queda en `localStorage` (`ndm-theme`). Cambia el estilo del mapa (`buildStyle(origin, 'dark')`, sprites `public/map/sprites/dark.*`) y la barra lateral (variante `dark:` de Tailwind sobre `data-theme` en `<html>`). Los colores de texto por ruta para fondo oscuro están en `NIGHT` (`app/src/colors.js`, con test de contraste). Los popups se quedan claros.
 - **Pista de primera visita:** una línea ("Elegí una ruta…") que se va al elegir una ruta, al cerrarla o a los 12 s, y no vuelve (`ndm-hint`).
 
+## Detalles visuales
+
+- **Oro del logo:** `GOLD` y `SWAP` en `app/src/colors.js` (tono medio de los píxeles dorados de la "M") marcan los intercambiadores: halo del pin y pastilla. Un test comprueba el contraste de la pastilla.
+- **Contorno de las líneas:** cada ruta lleva un contorno blanco (azul noche en modo noche) para leerse sobre las calles; todos los contornos se dibujan antes que las líneas.
+- **Íconos:** `app/src/icons.js` (SVG de trazo, estilo Lucide) en vez de símbolos Unicode, que cada sistema dibuja distinto.
+- **Horario de cierre:** `app/src/cierres.js` agrupa las paradas seguidas que cierran a la misma hora ("Paradas 4–9 · hasta las 23:00") en vez de repetir la pastilla.
+- **Popups en modo noche:** colores en clases (`.pop-*`, `.navpill`) con variantes bajo `[data-theme=dark]` en `app/src/index.css`.
+
 ## Vista previa al compartir e instalación
 
 `app/index.html` tiene descripción, Open Graph y tarjeta grande (`og.png`, 1200x630), canonical y `manifest.webmanifest` (íconos 192, 512 y maskable). Se generan con `python3 scripts/make-icons.py`. Para probar la vista previa: https://developers.facebook.com/tools/debug/ (WhatsApp usa lo mismo).

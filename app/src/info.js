@@ -20,8 +20,7 @@ export function webUrl(web = '') {
   return /^[\w.-]+\.[a-z]{2,}(\/[\w\-./%~+]*)?$/i.test(w) ? `https://${w}` : null
 }
 
-const A = 'color:#1d4ed8;text-decoration:underline;overflow-wrap:anywhere'
-const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer" style="${A}">${esc(text)}</a>`
+const link = (href, text) => `<a class="pop-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>`
 const row = (label, html) => `<div><b>${label}:</b> ${html}</div>`
 
 export function infoHtml(f) {
@@ -44,9 +43,9 @@ export function infoHtml(f) {
   const igs = instagrams(f.instagram)
   if (igs.length) more.push(row('Instagram', igs.map((h) => link(`https://www.instagram.com/${h}/`, `@${h}`)).join(' · ')))
   if (f.facebook) more.push(row('Facebook', esc(f.facebook)))
-  more.push('<div style="margin-top:6px;color:#64748b;font-size:12px">Fuente: nochedemuseos.org.py</div>')
+  more.push('<div class="pop-muted" style="margin-top:6px;font-size:12px">Fuente: nochedemuseos.org.py</div>')
 
-  return `<div style="margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:13px;line-height:1.5">${main.join('')}` +
+  return `<div class="pop-sep" style="margin-top:8px;padding-top:6px;font-size:13px;line-height:1.5">${main.join('')}` +
     `<details style="margin-top:4px"><summary style="cursor:pointer;font-weight:600">Más información</summary>` +
     `<div style="max-height:170px;overflow:auto;margin-top:4px">${more.join('')}</div></details></div>`
 }

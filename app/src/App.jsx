@@ -10,12 +10,17 @@ import museos from './museos-info.json' // ficha de cada parada (scripts/build-i
 import { BOLT_URL, boltTarget, destinoTexto, googleMapsUrl, uberUrl, wazeUrl } from './links.js'
 import { spread } from './spread.js'
 import { coreBounds, pinSize } from './view.js'
+import { ICONS, svg } from './icons.js'
+import { cierreRuns } from './cierres.js'
+import { SWAP } from './colors.js'
 import { effectiveTheme, otherTheme, THEME_KEY } from './theme.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import { registerWorker, saveTiles, shouldAutoSave, tilesSaved, TILES_MB } from './offline.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
 import { routes } from './routes.js'
+
+const RUNS = Object.fromEntries(Object.entries(routes).map(([k, r]) => [k, cierreRuns(r.stops)])) // aviso de cierre por parada (agrupado por tramos)
 
 setWorkerUrl(workerUrl) // Vite no resuelve solo el worker de MapLibre 6
 addProtocol('pmtiles', new Protocol().tile)
@@ -211,7 +216,7 @@ export default function App() {
         const icon = pinIcon(s, r, size, sel === 'ALL')
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div class="navgrp"><span class="navlbl">Llegar</span><div class="navrow">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div></div><div class="navgrp"><span class="navlbl">Pedir viaje</span><div class="navrow">${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div></div>`, { minWidth: 240, maxWidth: 300, autoPanPaddingTopLeft: [12, 64], autoPanPaddingBottomRight: [12, 112] })
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `${svg('swap', 12)} Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div class="navgrp"><span class="navlbl">Llegar</span><div class="navrow">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div></div><div class="navgrp"><span class="navlbl">Pedir viaje</span><div class="navrow">${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div></div>`, { minWidth: 240, maxWidth: 300, autoPanPaddingTopLeft: [12, 64], autoPanPaddingBottomRight: [12, 112] })
           .addTo(g)
         pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size, s, r })
       }
@@ -236,10 +241,12 @@ export default function App() {
       // Solo se dibujan flechas en el área visible (+120 px): a zoom alto el recorrido mide millones de píxeles y colgaba la página
       const pb = m.getPixelBounds()
       const view = { x0: pb.min.x - 120, y0: pb.min.y - 120, x1: pb.max.x + 120, y1: pb.max.y + 120 }
-      for (const k of shown) {
+      // Contorno bajo cada línea (blanco de día, azul noche de noche) para que se lea sobre las calles; todos los contornos primero y después las líneas
+      const drawn = shown.map((k) => [k, offsetPath(paths[k].map((ll) => m.project(ll, z)), units[k], weight + 1)])
+      for (const [, pts] of drawn) L.polyline(pts.map((p) => m.unproject([p.x, p.y], z)), { color: theme === 'dark' ? '#0f172a' : '#ffffff', weight: weight + 3, opacity: 0.8, interactive: false }).addTo(lines)
+      for (const [k, pts] of drawn) {
         const r = routes[k]
-        const pts = offsetPath(paths[k].map((ll) => m.project(ll, z)), units[k], weight + 1)
-        L.polyline(pts.map((p) => m.unproject([p.x, p.y], z)), { color: r.color, weight, opacity: all ? 0.7 : 0.9 }).addTo(lines)
+        L.polyline(pts.map((p) => m.unproject([p.x, p.y], z)), { color: r.color, weight, opacity: all ? 0.8 : 0.95 }).addTo(lines)
         for (const p of arrowsAlong(pts, all ? 240 : 160, view)) {
           const icon = L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], html: arrowHtml(r.color, size, p.angle) })
           L.marker(m.unproject([p.x, p.y], z), { icon, interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(arrows)
@@ -301,16 +308,16 @@ export default function App() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-[13px] text-slate-600 dark:text-slate-300">
-            <span className="flex items-center gap-1"><Pill kind="swap">⇄ A ↔ B</Pill> cambio de ruta</span>
+            <span className="flex items-center gap-1"><Pill kind="swap"><Icon d={ICONS.swap} size={12} /> A ↔ B</Pill> cambio de ruta</span>
             <span className="flex items-center gap-1"><Pill kind="time">Hasta las 22:00</Pill> cierra antes</span>
-            <span className="flex items-center gap-1"><span aria-hidden="true" className="text-base leading-none text-slate-700 dark:text-slate-200">➤</span> sentido del recorrido</span>
+            <span className="flex items-center gap-1"><span className="text-slate-700 dark:text-slate-200"><Icon d={ICONS.arrow} size={16} /></span> sentido del recorrido</span>
           </div>
           <ol className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
             {shown.map((k) => (
               <li key={k} className="mb-3">
                 <p className="mb-1 font-semibold text-(color:--ink) dark:text-(color:--night)" style={{ '--ink': routes[k].ink, '--night': routes[k].night }}>Ruta {k} · {routes[k].stops.length} paradas{routes[k].path && ` · ${fmt(routes[k].path)}`}</p>
                 <ol className="space-y-1">
-                  {routes[k].stops.map((s) => (
+                  {routes[k].stops.map((s, i) => (
                     <li key={s.orden}>
                       <button
                         className="flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-slate-100 dark:hover:bg-slate-800 pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-2"
@@ -319,10 +326,10 @@ export default function App() {
                         <span className="w-6 shrink-0 pt-px text-right font-mono text-slate-500 dark:text-slate-400">{s.orden}.</span>
                         <span className="min-w-0">
                           {s.nombre}{s.approx && <span title="Ubicación aproximada"> ≈</span>}
-                          {(s.swap || s.cierra) && (
+                          {(s.swap || RUNS[k][i]) && (
                             <span className="mt-1 flex flex-wrap gap-1">
-                              {s.swap && <Pill kind="swap" title="Intercambiador: podés cambiar de ruta acá">⇄ Ruta {s.swap.join(' ↔ ')}</Pill>}
-                              {s.cierra && <Pill kind="time" title="Cierra antes que el resto">Hasta las {s.cierra}</Pill>}
+                              {s.swap && <Pill kind="swap" title="Intercambiador: podés cambiar de ruta acá"><Icon d={ICONS.swap} size={12} /> Ruta {s.swap.join(' ↔ ')}</Pill>}
+                              {RUNS[k][i] && <Pill kind="time" title="Cierra antes que el resto">{RUNS[k][i]}</Pill>}
                             </span>
                           )}
                         </span>
@@ -356,14 +363,14 @@ export default function App() {
           aria-pressed={theme === 'dark'}
           className="absolute right-3 top-3 z-[1000] grid h-11 w-11 place-items-center rounded-full bg-white text-ndm-navy shadow-lg dark:bg-slate-800 dark:text-slate-100"
         >
-          {theme === 'dark' ? <Icon d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" /> : <Icon d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />}
+          {theme === 'dark' ? <Icon d={ICONS.sun} /> : <Icon d={ICONS.moon} />}
         </button>
         <div className="absolute left-3 right-16 top-3 z-[1000] flex flex-col items-start gap-2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:items-center">
           {hint && sel === 'ALL' && (
             <div role="note" className="flex items-center justify-between gap-2 rounded-full bg-ndm-navy py-1.5 pl-4 pr-1.5 text-[13px] text-white shadow-lg">
               <span><span className="md:hidden">Tocá «Rutas» y elegí un recorrido</span><span className="hidden md:inline">Elegí una ruta para ver su recorrido y sus paradas</span></span>
               <button onClick={dismissHint} aria-label="Cerrar aviso" className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/15 pointer-coarse:h-11 pointer-coarse:w-11">
-                <Icon d="M6 6l12 12M18 6L6 18" />
+                <Icon d={ICONS.close} />
               </button>
             </div>
           )}
@@ -395,11 +402,11 @@ export default function App() {
           <div className="flex gap-2">
             {tr.mode === 'on' && !tr.follow && (
               <button className={BTN} onClick={() => { send('center'); if (last.current) map.current.flyTo(last.current, Math.max(map.current.getZoom(), 16)) }}>
-                <span aria-hidden="true">⌖</span>Centrar
+                <Icon d={ICONS.crosshair} size={18} />Centrar
               </button>
             )}
             <button className={BTN} aria-pressed={tr.mode !== 'off'} onClick={toggleLocate}>
-              <span aria-hidden="true">◎</span>{{ off: 'Dónde estoy', wait: 'Buscando… (cancelar)', on: 'Detener seguimiento' }[tr.mode]}
+              <Icon d={ICONS.locate} size={18} />{{ off: 'Dónde estoy', wait: 'Buscando… (cancelar)', on: 'Detener seguimiento' }[tr.mode]}
             </button>
           </div>
         </div>
@@ -412,7 +419,7 @@ export default function App() {
 const pinIcon = (s, r, size, all) => L.divIcon({
   className: '',
   iconSize: [size, size],
-  html: `<div class="pin${s.swap ? ' swap' : ''}" style="width:${size}px;height:${size}px;font-size:${size < 18 ? 10 : 12}px;background:${s.approx ? '#fff' : r.ink};color:${s.approx ? r.ink : '#fff'};border:${size < 12 ? 1.5 : 2}px ${s.approx ? 'dashed' : 'solid'} ${r.ink}">${all ? (s.swap ? '⇄' : '') : s.orden}</div>`,
+  html: `<div class="pin${s.swap ? ' swap' : ''}" style="width:${size}px;height:${size}px;font-size:${size < 18 ? 10 : 12}px;background:${s.approx ? '#fff' : r.ink};color:${s.approx ? r.ink : '#fff'};border:${size < 12 ? 1.5 : 2}px ${s.approx ? 'dashed' : 'solid'} ${r.ink}">${all ? (s.swap ? svg('swap', size < 18 ? 10 : 12, 'vertical-align:middle') : '') : s.orden}</div>`,
 })
 
 const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-3 text-sm font-semibold text-white shadow-lg dark:bg-white dark:text-ndm-navy'
@@ -423,12 +430,12 @@ const navLink = (href, text, attrs = '') => `<a class="navpill" href="${href}" t
 const fmt = (p) => `${(p.distance / 1000).toFixed(1)} km · ${Math.round(p.duration / 60)} min en bus`
 
 const PILL = {
-  swap: { cls: 'bg-yellow-100 text-yellow-900 ring-yellow-400', css: 'background:#fef9c3;color:#713f12;border-color:#facc15' },
-  time: { cls: 'bg-slate-100 text-slate-700 ring-slate-300', css: 'background:#f1f5f9;color:#334155;border-color:#cbd5e1' },
+  swap: { cls: '', css: `background:${SWAP.bg};color:${SWAP.fg};border-color:${SWAP.ring}`, style: { background: SWAP.bg, color: SWAP.fg, boxShadow: `inset 0 0 0 1px ${SWAP.ring}` } },
+  time: { cls: 'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-300', css: 'background:#f1f5f9;color:#334155;border-color:#cbd5e1' },
 }
 const pillHtml = (kind, text) => `<span style="${PILL[kind].css};border:1px solid;border-radius:9999px;padding:1px 8px;font:600 12px/1.5 system-ui;white-space:nowrap">${text}</span>`
 function Pill({ kind, title, children }) {
-  return <span title={title} className={`inline-block whitespace-nowrap rounded-full px-2 py-px text-xs font-semibold leading-5 ring-1 ring-inset ${PILL[kind].cls}`}>{children}</span>
+  return <span title={title} style={PILL[kind].style} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-px text-xs font-semibold leading-5 ${PILL[kind].cls}`}>{children}</span>
 }
 
 // Íconos SVG de una sola familia (trazo 2, estilo Lucide)
@@ -436,9 +443,9 @@ function StatusPill({ children }) {
   return <p className="flex items-center gap-2 rounded-full bg-slate-800/90 px-3 py-1.5 text-[13px] text-white shadow-lg">{children}</p>
 }
 
-function Icon({ d }) {
+function Icon({ d, size = 22 }) {
   return (
-    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
   )
 }
 
