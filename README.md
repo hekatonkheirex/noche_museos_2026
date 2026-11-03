@@ -23,6 +23,10 @@ Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, fun
 
 Las paradas que se tapan entre sí (porque el zoom las junta, o porque una parada compartida aparece en varias rutas) se separan en abanico (`app/src/spread.js`, función pura `spread` con tests) y una línea guía une cada pin con su ubicación real. Al acercar, vuelven a su lugar.
 
+## Ir a una parada
+
+Cada parada (en el mapa o al tocarla en la lista, que ahora abre su popup) tiene enlaces "Google Maps" y "Waze" con indicaciones desde la ubicación actual (`app/src/links.js`, URLs oficiales, sin claves). En las paradas con ubicación aproximada (calle) el destino es esa calle. Los enlaces necesitan conexión.
+
 ## Dónde estoy
 
 Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide la ubicación al navegador (solo HTTPS) y la sigue mientras camina: punto con radio de precisión, el mapa acompaña. Si se arrastra el mapa deja de acompañar y aparece "Centrar"; "Detener seguimiento" lo apaga. Fuera de la zona del mapa (`BOUNDS`, igual al recorte de teselas) avisa una vez en vez de mover el mapa. Los estados del seguimiento están en la función pura `track` (con tests). Usa GPS de alta precisión, que gasta batería; por eso arranca solo con el botón y se apaga con "Detener". Funciona sin conexión.

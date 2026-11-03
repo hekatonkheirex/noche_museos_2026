@@ -5,6 +5,7 @@ import { Protocol } from 'pmtiles'
 import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE, track, TRACK_OFF } from './locate.js'
 import { arrowHtml, arrowsAlong } from './arrows.js'
 import { laneUnits, offsetPath } from './lanes.js'
+import { googleMapsUrl, wazeUrl } from './links.js'
 import { spread } from './spread.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
@@ -97,6 +98,13 @@ export default function App() {
     }
   }
 
+  // Desde la lista: acerca el mapa a la parada y abre su popup (con los enlaces para ir)
+  function openStop(k, s) {
+    const m = map.current
+    m.once('moveend', () => pins.current.find((p) => p.id === `${k}-${s.orden}`)?.marker.openPopup())
+    m.flyTo([s.lat, s.lon], 17)
+  }
+
   const shown = useMemo(() => (sel === 'ALL' ? keys : [sel]), [sel])
 
   useEffect(() => {
@@ -117,9 +125,9 @@ export default function App() {
         })
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}`)
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}<div style="margin-top:8px;display:flex;gap:6px">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div>`)
           .addTo(g)
-        pins.current.push({ marker, ll: [s.lat, s.lon], size })
+        pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size })
       }
     }
     if (bounds.length) map.current.fitBounds(bounds, { padding: [40, 40] })
@@ -198,7 +206,7 @@ export default function App() {
                     <li key={s.orden}>
                       <button
                         className="flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-slate-100"
-                        onClick={() => map.current.flyTo([s.lat, s.lon], 17)}
+                        onClick={() => openStop(k, s)}
                       >
                         <span className="w-6 shrink-0 pt-px text-right font-mono text-slate-500">{s.orden}.</span>
                         <span className="min-w-0">
@@ -252,6 +260,8 @@ export default function App() {
 }
 
 const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-2.5 text-sm font-semibold text-white shadow-lg'
+
+const navLink = (href, text) => `<a href="${href}" target="_blank" rel="noopener noreferrer" style="background:#001e47;color:#fff;border-radius:9999px;padding:3px 10px;font:600 11px/1.5 system-ui;text-decoration:none">↗ ${text}</a>`
 
 const fmt = (p) => `${(p.distance / 1000).toFixed(1)} km · ${Math.round(p.duration / 60)} min en bus`
 
