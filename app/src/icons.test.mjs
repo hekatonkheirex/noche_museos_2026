@@ -26,3 +26,7 @@ test('index.html enlaza los tres íconos y los archivos existen', () => {
     assert.ok(pub(f.slice(1)).length > 100, f)
   }
 })
+
+test('index.html carga el script de Vercel Web Analytics', () => {
+  assert.ok(html.includes('src="/_vercel/insights/script.js"'))
+})
