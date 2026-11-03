@@ -9,6 +9,8 @@ import { esc, infoHtml } from './info.js'
 import museos from './museos-info.json' // ficha de cada parada (scripts/build-info.mjs)
 import { BOLT_URL, boltTarget, destinoTexto, googleMapsUrl, uberUrl, wazeUrl } from './links.js'
 import { spread } from './spread.js'
+import { coreBounds, pinSize } from './view.js'
+import { effectiveTheme, otherTheme, THEME_KEY } from './theme.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
@@ -36,15 +38,42 @@ export default function App() {
   const outShown = useRef(false) // avisar "fuera de zona" una vez, no en cada posición
   const send = (ev) => { trRef.current = track(trRef.current, ev); setTr(trRef.current) }
   const keys = Object.keys(routes)
+  const gl = useRef(null) // capa MapLibre (mapa base)
+  // Tema: elección guardada (o el sistema). index.html ya puso data-theme antes del primer pintado para evitar el destello claro.
+  const [pref, setPref] = useState(() => { try { return localStorage.getItem(THEME_KEY) } catch { return null } })
+  const [sysDark, setSysDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const theme = effectiveTheme(pref, sysDark)
+  const [hint, setHint] = useState(() => { try { return !localStorage.getItem('ndm-hint') } catch { return true } }) // pista de primera visita
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const f = (e) => setSysDark(e.matches)
+    mq.addEventListener('change', f)
+    return () => mq.removeEventListener('change', f)
+  }, [])
+  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  function toggleTheme() {
+    const next = otherTheme(theme)
+    setPref(next)
+    try { localStorage.setItem(THEME_KEY, next) } catch { /* sin almacenamiento: vale solo esta sesión */ }
+  }
+  // Elegir ruta (o "Todas"); la primera ruta elegida retira la pista de bienvenida
+  const pick = (v) => { setSel(v); if (v !== 'ALL') dismissHint() }
+  function dismissHint() {
+    setHint(false)
+    try { localStorage.setItem('ndm-hint', '1') } catch { /* igual */ }
+  }
+  useEffect(() => { if (hint) { const t = setTimeout(() => setHint(false), 12000); return () => clearTimeout(t) } }, [hint])
 
   useEffect(() => {
     // maxBounds = zona de las teselas propias (public/asuncion.pmtiles); fuera de ella no hay mapa base
     map.current = L.map(mapEl.current, { zoomControl: false, minZoom: 10, maxZoom: 19, maxBounds: BOUNDS }).setView([-25.2867, -57.6333], 14)
     // Zoom arriba a la izquierda en escritorio; en pantallas táctiles abajo a la izquierda (los popups ocupan casi todo el ancho y lo tapaban)
     L.control.zoom({ position: window.matchMedia('(pointer: coarse)').matches ? 'bottomleft' : 'topleft' }).addTo(map.current)
-    const gl = L.maplibreGL({ style: buildStyle(location.origin) }).addTo(map.current)
+    gl.current = L.maplibreGL({ style: buildStyle(location.origin, theme) }).addTo(map.current)
     // Respaldo: si las teselas propias fallan (no cargan o error de red), cambiar a OpenFreeMap una sola vez
-    const glMap = gl.getMaplibreMap()
+    const glMap = gl.current.getMaplibreMap()
+    glMap.__theme = theme
     glMap.on('error', (e) => {
       if (e.sourceId !== SOURCE || glMap.__fallback) return
       glMap.__fallback = true
@@ -101,6 +130,13 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    const g = gl.current?.getMaplibreMap()
+    if (!g || g.__fallback || g.__theme === theme) return
+    g.__theme = theme
+    g.setStyle(buildStyle(location.origin, theme))
+  }, [theme])
+
+  useEffect(() => {
     if (!msg) return
     const t = setTimeout(() => setMsg(''), 8000)
     return () => clearTimeout(t)
@@ -139,20 +175,18 @@ export default function App() {
       const pts = r.stops.map((s) => [s.lat, s.lon])
       bounds.push(...pts)
       for (const s of r.stops) {
-        const size = sel === 'ALL' ? (s.swap ? 18 : 12) : 26
-        const icon = L.divIcon({
-          className: '',
-          iconSize: [size, size],
-          html: `<div class="pin${s.swap ? ' swap' : ''}" style="width:${size}px;height:${size}px;background:${s.approx ? '#fff' : r.ink};color:${s.approx ? r.ink : '#fff'};border:2px ${s.approx ? 'dashed' : 'solid'} ${r.ink}">${sel === 'ALL' ? (s.swap ? '⇄' : '') : s.orden}</div>`,
-        })
+        const size = pinSize(sel === 'ALL', !!s.swap, map.current.getZoom())
+        const icon = pinIcon(s, r, size, sel === 'ALL')
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`, { maxWidth: 300 }) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Llegar</span>${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Pedir viaje</span>${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div>`)
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `⇄ Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Llegar</span>${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div><div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:600 12px system-ui;color:#475569">Pedir viaje</span>${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div>`, { maxWidth: 300 })
           .addTo(g)
-        pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size })
+        pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size, s, r })
       }
     }
-    if (bounds.length) map.current.fitBounds(bounds, { padding: [40, 40] })
+    // "Todas" encuadra el centro (donde está casi todo); las rutas de Lambaré, San Lorenzo y Areguá quedan a un gesto. Una ruta: todas sus paradas.
+    const fit = sel === 'ALL' ? coreBounds(bounds.map(([lat, lon]) => ({ lat, lon }))) ?? bounds : bounds
+    if (fit.length) map.current.fitBounds(fit, { padding: [40, 40] })
   }, [shown, sel])
 
   // Líneas y flechas: los tramos que comparten calle se reparten en carriles paralelos (lanes.js); se recalcula al cambiar el zoom
@@ -183,13 +217,17 @@ export default function App() {
     // Paradas que se tapan entre sí (en este zoom): se separan y una línea guía marca su ubicación real
     const declutter = () => {
       const z = m.getZoom()
+      for (const p of pins.current) { // a zoom bajo en "Todas" las paradas son puntos; al acercar vuelven a ser pines
+        const want = pinSize(all, !!p.s.swap, z)
+        if (want !== p.size) { p.size = want; p.marker.setIcon(pinIcon(p.s, p.r, want, all)) }
+      }
       const orig = pins.current.map((p) => m.project(p.ll, z))
       const out = spread(pins.current.map((p, i) => ({ ...orig[i], r: p.size / 2 })))
       leaders.clearLayers()
       pins.current.forEach((p, i) => {
         const ll = m.unproject([out[i].x, out[i].y], z)
         p.marker.setLatLng(ll) // setLatLng mantiene abierto el popup de esa parada
-        if (Math.hypot(out[i].x - orig[i].x, out[i].y - orig[i].y) > 3) L.polyline([p.ll, ll], { color: '#334155', weight: 1.5, opacity: 0.85, interactive: false }).addTo(leaders)
+        if (Math.hypot(out[i].x - orig[i].x, out[i].y - orig[i].y) > 3) L.polyline([p.ll, ll], { color: theme === 'dark' ? '#cbd5e1' : '#334155', weight: 1.5, opacity: 0.85, interactive: false }).addTo(leaders)
       })
     }
     // Una excepción en un oyente de Leaflet aborta a los demás (entre ellos el que sincroniza el mapa base): se atrapan aquí
@@ -208,11 +246,11 @@ export default function App() {
     m.on('moveend', openPending)
     m.on('dragstart', cancelPending)
     return () => { m.off('moveend', redraw); m.off('moveend', openPending); m.off('dragstart', cancelPending) }
-  }, [shown, sel])
+  }, [shown, sel, theme])
 
   return (
     <div className="flex h-full flex-col md:flex-row">
-      <aside className={`z-[1000] flex flex-col bg-white shadow-lg md:w-80 ${open ? 'h-[72%]' : 'h-auto'} md:h-full`}>
+      <aside className={`z-[1000] flex flex-col bg-white shadow-lg dark:bg-slate-900 md:w-80 ${open ? 'h-[72%]' : 'h-auto'} md:h-full`}>
         <header className="flex items-center justify-between gap-3 bg-ndm-navy px-3 py-3 text-white">
           <div className="min-w-0">
             <h1 className="sr-only">Noche de los Museos 2026 · Mapa de rutas</h1>
@@ -225,28 +263,28 @@ export default function App() {
         </header>
         <div className={`${open ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col md:flex`}>
           <div className="flex gap-2 overflow-x-auto p-3 [scrollbar-width:none] md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden">
-            <Chip active={sel === 'ALL'} color="#001e47" onClick={() => setSel('ALL')}>Todas</Chip>
+            <Chip active={sel === 'ALL'} ink="#001e47" night="#e2e8f0" onClick={() => pick('ALL')}>Todas</Chip>
             {keys.map((k) => (
-              <Chip key={k} active={sel === k} color={routes[k].ink} onClick={() => setSel(k)}>{k}</Chip>
+              <Chip key={k} active={sel === k} ink={routes[k].ink} night={routes[k].night} onClick={() => pick(k)}>{k}</Chip>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-[13px] text-slate-600">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-[13px] text-slate-600 dark:text-slate-300">
             <span className="flex items-center gap-1"><Pill kind="swap">⇄ A ↔ B</Pill> cambio de ruta</span>
             <span className="flex items-center gap-1"><Pill kind="time">Hasta las 22:00</Pill> cierra antes</span>
-            <span className="flex items-center gap-1"><span aria-hidden="true" className="text-base leading-none text-slate-700">➤</span> sentido del recorrido</span>
+            <span className="flex items-center gap-1"><span aria-hidden="true" className="text-base leading-none text-slate-700 dark:text-slate-200">➤</span> sentido del recorrido</span>
           </div>
           <ol className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
             {shown.map((k) => (
               <li key={k} className="mb-3">
-                <p className="mb-1 font-semibold" style={{ color: routes[k].ink }}>Ruta {k} · {routes[k].stops.length} paradas{routes[k].path && ` · ${fmt(routes[k].path)}`}</p>
+                <p className="mb-1 font-semibold text-(color:--ink) dark:text-(color:--night)" style={{ '--ink': routes[k].ink, '--night': routes[k].night }}>Ruta {k} · {routes[k].stops.length} paradas{routes[k].path && ` · ${fmt(routes[k].path)}`}</p>
                 <ol className="space-y-1">
                   {routes[k].stops.map((s) => (
                     <li key={s.orden}>
                       <button
-                        className="flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-slate-100 pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-2"
+                        className="flex w-full items-start gap-1.5 rounded px-1 py-1 text-left hover:bg-slate-100 dark:hover:bg-slate-800 pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-2"
                         onClick={() => openStop(k, s)}
                       >
-                        <span className="w-6 shrink-0 pt-px text-right font-mono text-slate-500">{s.orden}.</span>
+                        <span className="w-6 shrink-0 pt-px text-right font-mono text-slate-500 dark:text-slate-400">{s.orden}.</span>
                         <span className="min-w-0">
                           {s.nombre}{s.approx && <span title="Ubicación aproximada"> ≈</span>}
                           {(s.swap || s.cierra) && (
@@ -261,7 +299,7 @@ export default function App() {
                   ))}
                 </ol>
                 {routes[k].pending.length > 0 && (
-                  <details className="mt-1 text-slate-500">
+                  <details className="mt-1 text-slate-500 dark:text-slate-400">
                     <summary className="cursor-pointer">{routes[k].pending.length} sin ubicación en el mapa</summary>
                     <ul className="ml-4 list-disc">
                       {routes[k].pending.map((s) => <li key={s.orden}>{s.orden}. {s.nombre}</li>)}
@@ -272,15 +310,31 @@ export default function App() {
             ))}
           </ol>
         </div>
-        <footer className={`${open ? 'block' : 'hidden'} border-t px-3 py-2 text-xs leading-4 text-slate-500 md:block`}>
+        <footer className={`${open ? 'block' : 'hidden'} border-t px-3 py-2 text-xs leading-4 text-slate-500 dark:border-slate-700 dark:text-slate-400 md:block`}>
           Mapa no oficial. Datos de la{' '}
           <a className="underline" href="https://www.nochedemuseos.org.py" target="_blank" rel="noreferrer">Asociación Noche de los Museos</a>.
         </footer>
       </aside>
       <div className="relative min-h-0 flex-1">
         <main ref={mapEl} className="h-full" aria-label="Mapa de rutas" />
+        <button
+          onClick={toggleTheme}
+          aria-label="Modo noche"
+          aria-pressed={theme === 'dark'}
+          className="absolute right-3 top-3 z-[1000] grid h-11 w-11 place-items-center rounded-full bg-white text-ndm-navy shadow-lg dark:bg-slate-800 dark:text-slate-100"
+        >
+          {theme === 'dark' ? <Icon d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" /> : <Icon d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />}
+        </button>
+        {hint && sel === 'ALL' && (
+          <div role="note" className="absolute left-3 right-16 top-3 z-[1000] flex items-center justify-between gap-2 rounded-full bg-ndm-navy py-1.5 pl-4 pr-1.5 text-[13px] text-white shadow-lg md:left-1/2 md:right-auto md:-translate-x-1/2 md:justify-start">
+            <span><span className="md:hidden">Tocá «Rutas» y elegí un recorrido</span><span className="hidden md:inline">Elegí una ruta para ver su recorrido y sus paradas</span></span>
+            <button onClick={dismissHint} aria-label="Cerrar aviso" className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/15 pointer-coarse:h-11 pointer-coarse:w-11">
+              <Icon d="M6 6l12 12M18 6L6 18" />
+            </button>
+          </div>
+        )}
         <div className="absolute bottom-8 right-3 z-[1000] flex max-w-[16rem] flex-col items-end gap-2">
-          {msg && <p role="status" className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700 shadow-lg">{msg}</p>}
+          {msg && <p role="status" className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700 shadow-lg dark:bg-slate-800 dark:text-slate-100">{msg}</p>}
           <div className="flex gap-2">
             {tr.mode === 'on' && !tr.follow && (
               <button className={BTN} onClick={() => { send('center'); if (last.current) map.current.flyTo(last.current, Math.max(map.current.getZoom(), 16)) }}>
@@ -297,7 +351,14 @@ export default function App() {
   )
 }
 
-const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-3 text-sm font-semibold text-white shadow-lg'
+// Pin de una parada: número (una ruta), punto o ⇄ (todas). Los pines de menos de 18 px no llevan número ni aro grueso.
+const pinIcon = (s, r, size, all) => L.divIcon({
+  className: '',
+  iconSize: [size, size],
+  html: `<div class="pin${s.swap ? ' swap' : ''}" style="width:${size}px;height:${size}px;font-size:${size < 18 ? 10 : 12}px;background:${s.approx ? '#fff' : r.ink};color:${s.approx ? r.ink : '#fff'};border:${size < 12 ? 1.5 : 2}px ${s.approx ? 'dashed' : 'solid'} ${r.ink}">${all ? (s.swap ? '⇄' : '') : s.orden}</div>`,
+})
+
+const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-3 text-sm font-semibold text-white shadow-lg dark:bg-white dark:text-ndm-navy'
 
 // attrs (opcional): atributos HTML ya escapados (Bolt lo usa para su comportamiento propio, ver popupopen)
 const navLink = (href, text, attrs = '') => `<a class="navpill" href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}>↗ ${text}</a>`
@@ -313,13 +374,21 @@ function Pill({ kind, title, children }) {
   return <span title={title} className={`inline-block whitespace-nowrap rounded-full px-2 py-px text-xs font-semibold leading-5 ring-1 ring-inset ${PILL[kind].cls}`}>{children}</span>
 }
 
-function Chip({ active, color, onClick, children }) {
+// Íconos SVG de una sola familia (trazo 2, estilo Lucide)
+function Icon({ d }) {
+  return (
+    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+  )
+}
+
+// ink = color con contraste AA sobre blanco (texto, relleno activo); night = tono claro para texto y borde sobre fondo oscuro
+function Chip({ active, ink, night, onClick, children }) {
   return (
     <button
       onClick={onClick}
       aria-pressed={active}
-      className="shrink-0 rounded-full border-2 px-3 py-1 text-sm font-semibold pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-      style={{ borderColor: color, background: active ? color : '#fff', color: active ? '#fff' : color }}
+      style={{ '--ink': ink, '--night': night }}
+      className={`shrink-0 rounded-full border-2 border-(color:--ink) px-3 py-1 text-sm font-semibold pointer-coarse:min-h-11 pointer-coarse:min-w-11 dark:border-(color:--night) ${active ? 'bg-(--ink) text-white' : 'bg-white text-(color:--ink) dark:bg-slate-900 dark:text-(color:--night)'}`}
     >
       {children}
     </button>

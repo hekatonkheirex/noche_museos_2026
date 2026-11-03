@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, statSync } from 'node:fs'
-import { buildStyle, SOURCE } from './basemap.js'
+import { buildStyle, EARTH, SOURCE } from './basemap.js'
 
 const s = buildStyle('https://x.test')
 
@@ -33,4 +33,15 @@ test('sprites presentes y, si existe, asuncion.pmtiles es válido (va en Git LFS
 test('fondo = color de tierra (sin bandas grises fuera del recorte)', () => {
   const bg = s.layers.find((l) => l.type === 'background')
   assert.equal(bg.paint['background-color'], '#e2dfda')
+})
+
+test('estilo oscuro: sprite oscuro propio, mismas fuentes y fondo = tierra oscura; el claro no cambia', () => {
+  const d = buildStyle('https://x.test', 'dark'), l = buildStyle('https://x.test')
+  assert.equal(d.sprite, 'https://x.test/map/sprites/dark')
+  assert.equal(l.sprite, 'https://x.test/map/sprites/light')
+  assert.equal(d.glyphs, l.glyphs)
+  assert.equal(d.layers.find((x) => x.type === 'background').paint['background-color'], EARTH.dark)
+  assert.equal(l.layers.find((x) => x.type === 'background').paint['background-color'], EARTH.light)
+  assert.notEqual(EARTH.dark, EARTH.light)
+  for (const f of ['dark.json', 'dark.png', 'dark@2x.json', 'dark@2x.png']) assert.ok(statSync(new URL(`../public/map/sprites/${f}`, import.meta.url)).size > 500, f)
 })

@@ -56,6 +56,12 @@ La app registra un service worker (`app/src/sw.js`, plugin `vite-plugin-pwa`). T
 - **Táctil:** en `pointer: coarse` los chips, filas de la lista, botones del popup, zoom y cerrar popup miden 44 px. El zoom pasa abajo a la izquierda (arriba tapaba el título del popup) y los chips van en una fila con scroll.
 - **Teclado y lectores:** los chips tienen `aria-pressed`, el foco es un anillo de dos tonos (`:focus-visible` en `app/src/index.css`) y el `h1` es "Noche de los Museos 2026 · Mapa de rutas".
 
+## Vista inicial, modo noche y pista
+
+- **Vista inicial:** "Todas" encuadra el centro de Asunción, no toda la región (`app/src/view.js`, `coreBounds`: paradas a menos de 10 km de la mediana). Las rutas de Lambaré, San Lorenzo y Areguá siguen a un gesto o eligiéndolas. A zoom menor que 14 las paradas son puntos y solo los intercambiadores (⇄) llevan marca, para que se lea la red de rutas.
+- **Modo noche** (el evento es de 18 a 23 h): botón de luna/sol arriba a la derecha del mapa. Sigue al sistema (`prefers-color-scheme`) hasta que la persona elige; la elección queda en `localStorage` (`ndm-theme`). Cambia el estilo del mapa (`buildStyle(origin, 'dark')`, sprites `public/map/sprites/dark.*`) y la barra lateral (variante `dark:` de Tailwind sobre `data-theme` en `<html>`). Los colores de texto por ruta para fondo oscuro están en `NIGHT` (`app/src/colors.js`, con test de contraste). Los popups se quedan claros.
+- **Pista de primera visita:** una línea ("Elegí una ruta…") que se va al elegir una ruta, al cerrarla o a los 12 s, y no vuelve (`ndm-hint`).
+
 ## Vista previa al compartir e instalación
 
 `app/index.html` tiene descripción, Open Graph y tarjeta grande (`og.png`, 1200x630), canonical y `manifest.webmanifest` (íconos 192, 512 y maskable). Se generan con `python3 scripts/make-icons.py`. Para probar la vista previa: https://developers.facebook.com/tools/debug/ (WhatsApp usa lo mismo).

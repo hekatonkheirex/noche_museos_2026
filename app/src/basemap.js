@@ -6,13 +6,15 @@ export const FALLBACK_STYLE = 'https://tiles.openfreemap.org/styles/liberty'
 export const SOURCE = 'protomaps'
 
 // Fuera del recorte (public/asuncion.pmtiles) no hay polígono de tierra: el fondo toma el color de tierra para no ver bandas grises
-const flavor = { ...namedFlavor('light'), background: namedFlavor('light').earth }
+const flavorFor = (theme) => { const f = namedFlavor(theme === 'dark' ? 'dark' : 'light'); return { ...f, background: f.earth } }
+export const EARTH = { light: namedFlavor('light').earth, dark: namedFlavor('dark').earth } // = fondo del contenedor (index.css)
 
-export function buildStyle(origin) {
+export function buildStyle(origin, theme = 'light') {
+  const flavor = flavorFor(theme)
   return {
     version: 8,
     glyphs: `${origin}/map/fonts/{fontstack}/{range}.pbf`,
-    sprite: `${origin}/map/sprites/light`,
+    sprite: `${origin}/map/sprites/${theme === 'dark' ? 'dark' : 'light'}`,
     sources: {
       [SOURCE]: {
         type: 'vector',

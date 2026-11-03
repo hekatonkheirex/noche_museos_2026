@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Modo noche: lo activa data-theme="dark" en <html> (elección guardada o el sistema), no solo prefers-color-scheme */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 @import 'leaflet/dist/leaflet.css';
 @import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -35,3 +37,12 @@ body { font-family: var(--font-sans); color: var(--color-ndm-ink); }
   .leaflet-touch .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; font-size: 22px; }
   .leaflet-container a.leaflet-popup-close-button { width: 44px; height: 44px; font-size: 26px; line-height: 44px; padding: 0; }
 }
+
+/* Modo noche: mapa y controles */
+[data-theme=dark] { color-scheme: dark; }
+[data-theme=dark] body { color: #e2e8f0; }
+[data-theme=dark] .leaflet-container { background: #1f1f1f; } /* = tierra del estilo oscuro de Protomaps (EARTH.dark en basemap.js) */
+[data-theme=dark] .leaflet-bar a { background: #1e293b; color: #e2e8f0; border-bottom-color: #334155; }
+[data-theme=dark] .leaflet-bar a:hover { background: #334155; }
+[data-theme=dark] .leaflet-control-attribution { background: rgba(15, 23, 42, 0.8); color: #cbd5e1; }
+[data-theme=dark] .leaflet-control-attribution a { color: #93c5fd; }
