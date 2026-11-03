@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 globalThis.self ??= globalThis // workbox asume un service worker (self) al importarse
-const { prefetchTiles, serveTiles } = await import('./tiles-handler.js')
+const { dropOldTiles, prefetchTiles, serveTiles } = await import('./tiles-handler.js')
 
 const U = 'https://x.test/asuncion.pmtiles'
 const body = Uint8Array.from({ length: 100 }, (_, i) => i)
@@ -43,4 +43,11 @@ test('con conexión y sin caché: pasa el pedido (con su Range) a la red', async
   const r = await serveTiles(req('bytes=0-9'), fakeCache(), async (q) => ((seen = q), new Response('ok', { status: 206 })))
   assert.equal(r.status, 206)
   assert.equal(seen.headers.get('range'), 'bytes=0-9')
+})
+
+test('dropOldTiles borra solo cachés tiles-* de otras versiones', async () => {
+  const names = new Set(['tiles-v1', 'tiles-v2', 'tiles-v3', 'workbox-precache-v2-x', 'otra'])
+  const storage = { keys: async () => [...names], delete: async (k) => names.delete(k) }
+  assert.deepEqual((await dropOldTiles(storage, 'tiles-v2')).sort(), ['tiles-v1', 'tiles-v3'])
+  assert.deepEqual([...names].sort(), ['otra', 'tiles-v2', 'workbox-precache-v2-x'])
 })

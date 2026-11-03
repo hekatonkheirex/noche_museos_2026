@@ -17,3 +17,10 @@ export async function prefetchTiles(url, cache, net = fetch) {
   await cache.put(url, res)
   return true
 }
+
+// Borra cachés de teselas de versiones anteriores (liberan 10-25 MB por teléfono). Devuelve los nombres borrados.
+export async function dropOldTiles(storage, current = TILES_CACHE) {
+  const old = (await storage.keys()).filter((k) => k.startsWith('tiles-') && k !== current)
+  await Promise.all(old.map((k) => storage.delete(k)))
+  return old
+}
