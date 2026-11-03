@@ -20,7 +20,7 @@ export default function App() {
 
   useEffect(() => {
     // maxBounds = zona de las teselas propias (public/asuncion.pmtiles); fuera de ella no hay mapa base
-    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxBounds: [[-25.45, -57.75], [-25.18, -57.3]] }).setView([-25.2867, -57.6333], 14)
+    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxBounds: [[-25.55, -57.85], [-25.05, -57.2]] }).setView([-25.2867, -57.6333], 14)
     const gl = L.maplibreGL({ style: buildStyle(location.origin) }).addTo(map.current)
     // Respaldo: si las teselas propias fallan (no cargan o error de red), cambiar a OpenFreeMap una sola vez
     const glMap = gl.getMaplibreMap()
