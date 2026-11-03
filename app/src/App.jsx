@@ -26,6 +26,7 @@ export default function App() {
   const lineLayer = useRef(null) // líneas de las rutas
   const leaderLayer = useRef(null) // líneas guía de cada parada desplazada a su ubicación real
   const pins = useRef([]) // paradas dibujadas: { marker, ll, size }
+  const pendingOpen = useRef(null) // id de la parada cuyo popup se abre al terminar el vuelo
   const arrowLayer = useRef(null) // flechas de sentido
   const me = useRef(null) // marcador de "dónde estoy"
   const [msg, setMsg] = useState('') // aviso de ubicación
@@ -38,7 +39,7 @@ export default function App() {
 
   useEffect(() => {
     // maxBounds = zona de las teselas propias (public/asuncion.pmtiles); fuera de ella no hay mapa base
-    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxBounds: BOUNDS }).setView([-25.2867, -57.6333], 14)
+    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxZoom: 19, maxBounds: BOUNDS }).setView([-25.2867, -57.6333], 14)
     const gl = L.maplibreGL({ style: buildStyle(location.origin) }).addTo(map.current)
     // Respaldo: si las teselas propias fallan (no cargan o error de red), cambiar a OpenFreeMap una sola vez
     const glMap = gl.getMaplibreMap()
@@ -101,10 +102,10 @@ export default function App() {
   }
 
   // Desde la lista: acerca el mapa a la parada y abre su popup (con los enlaces para ir)
+  // Un solo popup pendiente (no un oyente por clic): clics rápidos en la lista no apilan aperturas sobre vuelos interrumpidos
   function openStop(k, s) {
-    const m = map.current
-    m.once('moveend', () => pins.current.find((p) => p.id === `${k}-${s.orden}`)?.marker.openPopup())
-    m.flyTo([s.lat, s.lon], 17)
+    pendingOpen.current = `${k}-${s.orden}`
+    map.current.flyTo([s.lat, s.lon], 17)
   }
 
   const shown = useMemo(() => (sel === 'ALL' ? keys : [sel]), [sel])
@@ -147,11 +148,14 @@ export default function App() {
       lines.clearLayers()
       arrows.clearLayers()
       const z = m.getZoom()
+      // Solo se dibujan flechas en el área visible (+120 px): a zoom alto el recorrido mide millones de píxeles y colgaba la página
+      const pb = m.getPixelBounds()
+      const view = { x0: pb.min.x - 120, y0: pb.min.y - 120, x1: pb.max.x + 120, y1: pb.max.y + 120 }
       for (const k of shown) {
         const r = routes[k]
         const pts = offsetPath(paths[k].map((ll) => m.project(ll, z)), units[k], weight + 1)
         L.polyline(pts.map((p) => m.unproject([p.x, p.y], z)), { color: r.color, weight, opacity: all ? 0.7 : 0.9 }).addTo(lines)
-        for (const p of arrowsAlong(pts, all ? 120 : 80)) {
+        for (const p of arrowsAlong(pts, all ? 120 : 80, view)) {
           const icon = L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], html: arrowHtml(r.color, size, p.angle) })
           L.marker(m.unproject([p.x, p.y], z), { icon, interactive: false, keyboard: false, zIndexOffset: -1000 }).addTo(arrows)
         }
@@ -169,10 +173,22 @@ export default function App() {
         if (Math.hypot(out[i].x - orig[i].x, out[i].y - orig[i].y) > 3) L.polyline([p.ll, ll], { color: '#334155', weight: 1.5, opacity: 0.85, interactive: false }).addTo(leaders)
       })
     }
-    const redraw = () => { draw(); declutter() }
+    // Una excepción en un oyente de Leaflet aborta a los demás (entre ellos el que sincroniza el mapa base): se atrapan aquí
+    const safe = (fn) => () => { try { fn() } catch (e) { console.error(e) } }
+    const redraw = safe(() => { draw(); declutter() })
+    const openPending = safe(() => {
+      const id = pendingOpen.current
+      if (!id) return
+      pendingOpen.current = null
+      const p = pins.current.find((x) => x.id === id)
+      if (p?.marker._map) p.marker.openPopup() // solo si el pin sigue en el mapa
+    })
+    const cancelPending = () => { pendingOpen.current = null } // si la persona arrastra el mapa, el vuelo se cancela: no abrir popups después
     redraw()
-    m.on('zoomend', redraw)
-    return () => m.off('zoomend', redraw)
+    m.on('moveend', redraw) // moveend ocurre tras mover o hacer zoom: con las flechas recortadas a la vista, también al desplazarse
+    m.on('moveend', openPending)
+    m.on('dragstart', cancelPending)
+    return () => { m.off('moveend', redraw); m.off('moveend', openPending); m.off('dragstart', cancelPending) }
   }, [shown, sel])
 
   return (

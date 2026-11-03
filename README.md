@@ -19,7 +19,7 @@ Intercambiadores: `app/src/intercambiadores.json`. Horarios de cierre anticipado
 
 ## Flechas de sentido
 
-Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, función pura `arrowsAlong` con tests). Se colocan cada ~80 px (una ruta) o ~120 px (todas) de pantalla sobre el recorrido y se recalculan al cambiar el zoom. Los tramos que comparten calle (entre rutas, o la ida y el regreso de una misma ruta) se reparten en carriles paralelos (`app/src/lanes.js`, función pura `laneUnits` con tests): cada sentido va por la derecha, como el tránsito. El desplazamiento es en píxeles y se recalcula con el zoom.
+Cada ruta lleva flechas que marcan hacia dónde seguir (`app/src/arrows.js`, función pura `arrowsAlong` con tests). Se colocan cada ~80 px (una ruta) o ~120 px (todas) de pantalla sobre el recorrido, solo en el área visible, y se recalculan al mover o hacer zoom al mapa (el zoom máximo es 19). Dibujar flechas de todo el recorrido a zoom alto colgaba la página: `arrowsAlong` recibe el área visible, salta lo que queda fuera y tiene un tope duro. Los tramos que comparten calle (entre rutas, o la ida y el regreso de una misma ruta) se reparten en carriles paralelos (`app/src/lanes.js`, función pura `laneUnits` con tests): cada sentido va por la derecha, como el tránsito. El desplazamiento es en píxeles y se recalcula con el zoom.
 
 Las paradas que se tapan entre sí (porque el zoom las junta, o porque una parada compartida aparece en varias rutas) se separan en abanico (`app/src/spread.js`, función pura `spread` con tests) y una línea guía une cada pin con su ubicación real. Al acercar, vuelven a su lugar.
 
