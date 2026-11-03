@@ -14,7 +14,7 @@ export default defineConfig({
       injectRegister: false, // el registro lo hace src/offline.js
       manifest: false,
       injectManifest: {
-        globPatterns: ['**/*.{html,js,mjs,css,png,json,pbf,woff2}'],
+        globPatterns: ['**/*.{html,js,mjs,css,png,ico,json,pbf,woff2}'],
         globIgnores: ['asuncion.pmtiles'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
