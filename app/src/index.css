@@ -64,3 +64,6 @@ body { font-family: var(--font-sans); color: var(--color-ndm-ink); }
 [data-theme=dark] .leaflet-container a.pop-link { color: #93c5fd; }
 [data-theme=dark] .navpill { background: #e2e8f0; }
 [data-theme=dark] .leaflet-container a.navpill { color: #0f172a; }
+
+/* Celular: la hoja inferior tapa la parte baja del mapa; el zoom y la atribución suben encima de ella (--sheet-h la fija App.jsx) */
+@media (max-width: 767px) { .leaflet-bottom { margin-bottom: var(--sheet-h, 0px); } }

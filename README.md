@@ -64,6 +64,10 @@ La app registra un service worker (`app/src/sw.js`, plugin `vite-plugin-pwa`). T
 - **Modo noche** (el evento es de 18 a 23 h): botón de luna/sol arriba a la derecha del mapa. Sigue al sistema (`prefers-color-scheme`) hasta que la persona elige; la elección queda en `localStorage` (`ndm-theme`). Cambia el estilo del mapa (`buildStyle(origin, 'dark')`, sprites `public/map/sprites/dark.*`) y la barra lateral (variante `dark:` de Tailwind sobre `data-theme` en `<html>`). Los colores de texto por ruta para fondo oscuro están en `NIGHT` (`app/src/colors.js`, con test de contraste). Los popups se quedan claros.
 - **Pista de primera visita:** una línea ("Elegí una ruta…") que se va al elegir una ruta, al cerrarla o a los 12 s, y no vuelve (`ndm-hint`).
 
+## Hoja inferior en celular
+
+En pantallas de menos de 768 px el panel de rutas es una hoja inferior (`app/src/sheet.js`, funciones puras con tests): asomada (asa + chips, 84 px), media (la mitad de la pantalla) y completa (deja visible el logo). Se arrastra desde el asa (con inercia al soltar), un toque alterna asomada y media, y las flechas del teclado suben y bajan. El zoom, la atribución, los botones del mapa y el margen de los popups suben junto con la hoja (variable CSS `--sheet-h`). Al elegir una parada de la lista la hoja baja a asomada para dejar ver el mapa y el popup. En escritorio es la barra lateral de siempre.
+
 ## Detalles visuales
 
 - **Oro del logo:** `GOLD` y `SWAP` en `app/src/colors.js` (tono medio de los píxeles dorados de la "M") marcan los intercambiadores: halo del pin y pastilla. Un test comprueba el contraste de la pastilla.

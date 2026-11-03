@@ -13,6 +13,7 @@ import { coreBounds, pinSize } from './view.js'
 import { ICONS, svg } from './icons.js'
 import { cierreRuns } from './cierres.js'
 import { SWAP } from './colors.js'
+import { clampHeight, nearestSnap, sheetHeights, stepSnap, tapSnap } from './sheet.js'
 import { effectiveTheme, otherTheme, THEME_KEY } from './theme.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import { registerWorker, saveTiles, shouldAutoSave, tilesSaved, TILES_MB } from './offline.js'
@@ -27,7 +28,15 @@ addProtocol('pmtiles', new Protocol().tile)
 
 export default function App() {
   const [sel, setSel] = useState('ALL') // 'ALL' o letra de ruta
-  const [open, setOpen] = useState(false) // panel en móvil
+  // Hoja inferior del celular (en escritorio es la barra lateral): alturas peek / half / full, con arrastre desde el asa
+  const [snap, setSnap] = useState('peek')
+  const [vh, setVh] = useState(() => window.innerHeight)
+  const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  const [drag, setDrag] = useState(null) // altura en px mientras se arrastra
+  const dragRef = useRef(null)
+  const heights = sheetHeights(vh)
+  const sheetH = drag ?? heights[snap]
+  const popupPad = useRef(null) // margen inferior del auto-desplazamiento de popups: sube con la hoja (se muta el mismo L.Point)
   const mapEl = useRef(null)
   const map = useRef(null)
   const layer = useRef(null)
@@ -45,11 +54,49 @@ export default function App() {
   const send = (ev) => { trRef.current = track(trRef.current, ev); setTr(trRef.current) }
   const keys = Object.keys(routes)
   const gl = useRef(null) // capa MapLibre (mapa base)
+  popupPad.current ??= L.point(12, 112)
   // Tema: elección guardada (o el sistema). index.html ya puso data-theme antes del primer pintado para evitar el destello claro.
   const [pref, setPref] = useState(() => { try { return localStorage.getItem(THEME_KEY) } catch { return null } })
   const [sysDark, setSysDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
   const theme = effectiveTheme(pref, sysDark)
   const [hint, setHint] = useState(() => { try { return !localStorage.getItem('ndm-hint') } catch { return true } }) // pista de primera visita
+
+  useEffect(() => {
+    const onResize = () => { setVh(window.innerHeight); setMobile(window.matchMedia('(max-width: 767px)').matches) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  // --sheet-h: alto de la hoja; los controles de abajo del mapa y los popups se desplazan para no quedar tapados
+  useEffect(() => {
+    const px = mobile ? sheetH : 0
+    document.documentElement.style.setProperty('--sheet-h', `${px}px`)
+    if (popupPad.current) popupPad.current.y = px + 112
+  }, [sheetH, mobile])
+  function onHandleDown(e) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { y: e.clientY, h: sheetH, t: performance.now(), moved: false, last: sheetH }
+  }
+  function onHandleMove(e) {
+    const d = dragRef.current
+    if (!d) return
+    if (Math.abs(e.clientY - d.y) > 6) d.moved = true
+    if (!d.moved) return
+    d.last = clampHeight(d.h + (d.y - e.clientY), heights)
+    setDrag(d.last)
+  }
+  function onHandleUp(e) {
+    const d = dragRef.current
+    dragRef.current = null
+    if (!d) return
+    if (!d.moved) return setSnap(tapSnap(snap)) // toque: alterna mínima / media
+    const v = (d.y - e.clientY) / Math.max(1, performance.now() - d.t) // px/ms, positiva = hacia arriba
+    setSnap(nearestSnap(heights, d.last, v))
+    setDrag(null)
+  }
+  function onHandleKey(e) {
+    if (e.key === 'ArrowUp') { e.preventDefault(); setSnap(stepSnap(snap, 1)) }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setSnap(stepSnap(snap, -1)) }
+  }
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
@@ -197,6 +244,7 @@ export default function App() {
   // Un solo popup pendiente (no un oyente por clic): clics rápidos en la lista no apilan aperturas sobre vuelos interrumpidos
   function openStop(k, s) {
     pendingOpen.current = `${k}-${s.orden}`
+    if (mobile) setSnap('peek') // en celular la hoja baja para dejar ver el mapa y el popup
     map.current.flyTo([s.lat, s.lon], 17)
   }
 
@@ -216,7 +264,7 @@ export default function App() {
         const icon = pinIcon(s, r, size, sel === 'ALL')
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `${svg('swap', 12)} Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div class="navgrp"><span class="navlbl">Llegar</span><div class="navrow">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div></div><div class="navgrp"><span class="navlbl">Pedir viaje</span><div class="navrow">${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div></div>`, { minWidth: 240, maxWidth: 300, autoPanPaddingTopLeft: [12, 64], autoPanPaddingBottomRight: [12, 112] })
+          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `${svg('swap', 12)} Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div class="navgrp"><span class="navlbl">Llegar</span><div class="navrow">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div></div><div class="navgrp"><span class="navlbl">Pedir viaje</span><div class="navrow">${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div></div>`, { minWidth: 240, maxWidth: 300, autoPanPaddingTopLeft: [12, 64], autoPanPaddingBottomRight: popupPad.current })
           .addTo(g)
         pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size, s, r })
       }
@@ -289,19 +337,32 @@ export default function App() {
 
   return (
     <div className="flex h-full flex-col md:flex-row">
-      <aside className={`z-[1000] flex flex-col bg-white shadow-lg dark:bg-slate-900 md:w-80 ${open ? 'h-[72%]' : 'h-auto'} md:h-full`}>
+      <aside className="z-[1000] flex flex-col bg-white shadow-lg dark:bg-slate-900 md:h-full md:w-80">
         <header className="flex items-center justify-between gap-3 bg-ndm-navy px-3 py-3 text-white">
           <div className="min-w-0">
             <h1 className="sr-only">Noche de los Museos 2026 · Mapa de rutas</h1>
             <img src="/ndm-2026-logo.png" alt="" width="104" height="48" className="h-12 w-auto" />
             <p className="mt-1 text-[13px] font-normal tracking-wide text-ndm-sky">Rutas · 7 de noviembre · 18 h</p>
           </div>
-          <button className="shrink-0 rounded-full border border-white/70 px-4 py-1 text-sm font-semibold pointer-coarse:min-h-11 md:hidden" onClick={() => setOpen(!open)} aria-expanded={open}>
-            {open ? 'Ocultar' : 'Rutas'}
-          </button>
         </header>
-        <div className={`${open ? 'flex' : 'hidden'} min-h-0 flex-1 flex-col md:flex`}>
-          <div className="flex gap-2 overflow-x-auto p-3 [scrollbar-width:none] md:flex-wrap md:overflow-visible [&::-webkit-scrollbar]:hidden">
+        <section
+          aria-label="Rutas y paradas"
+          style={{ '--sheet-h': `${sheetH}px` }}
+          className={`flex min-h-0 flex-col bg-white dark:bg-slate-900 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-[1001] max-md:h-(--sheet-h) max-md:overflow-hidden max-md:rounded-t-2xl max-md:shadow-[0_-6px_20px_rgba(0,0,0,0.25)] md:flex-1 ${drag === null ? 'max-md:transition-[height] max-md:duration-200 motion-reduce:transition-none' : ''}`}
+        >
+          <button
+            aria-label="Panel de rutas: tocá o arrastrá para ampliar o reducir"
+            aria-expanded={snap !== 'peek'}
+            onPointerDown={onHandleDown}
+            onPointerMove={onHandleMove}
+            onPointerUp={onHandleUp}
+            onPointerCancel={() => { dragRef.current = null; setDrag(null) }}
+            onKeyDown={onHandleKey}
+            className="grid h-6 shrink-0 cursor-grab place-items-center touch-none md:hidden"
+          >
+            <span aria-hidden="true" className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+          </button>
+          <div className="flex shrink-0 gap-2 overflow-x-auto px-3 pb-3 pt-1 [scrollbar-width:none] md:flex-wrap md:overflow-visible md:p-3 [&::-webkit-scrollbar]:hidden">
             <Chip active={sel === 'ALL'} ink="#001e47" night="#e2e8f0" onClick={() => pick('ALL')}>Todas</Chip>
             {keys.map((k) => (
               <Chip key={k} active={sel === k} ink={routes[k].ink} night={routes[k].night} onClick={() => pick(k)}>{k}</Chip>
@@ -348,12 +409,12 @@ export default function App() {
               </li>
             ))}
           </ol>
-        </div>
-        <footer className={`${open ? 'block' : 'hidden'} border-t px-3 py-2 text-xs leading-4 text-slate-500 dark:border-slate-700 dark:text-slate-400 md:block`}>
+          <footer className="block shrink-0 border-t px-3 py-2 text-xs leading-4 text-slate-500 dark:border-slate-700 dark:text-slate-400">
           Mapa no oficial. Datos de la{' '}
           <a className="underline" href="https://www.nochedemuseos.org.py" target="_blank" rel="noreferrer">Asociación Noche de los Museos</a>.
           {off.s === 'saved' && <span className="block">Mapa guardado para usar sin conexión.</span>}
-        </footer>
+          </footer>
+        </section>
       </aside>
       <div className="relative min-h-0 flex-1">
         <main ref={mapEl} className="h-full" aria-label="Mapa de rutas" />
@@ -368,7 +429,7 @@ export default function App() {
         <div className="absolute left-3 right-16 top-3 z-[1000] flex flex-col items-start gap-2 md:left-1/2 md:right-auto md:-translate-x-1/2 md:items-center">
           {hint && sel === 'ALL' && (
             <div role="note" className="flex items-center justify-between gap-2 rounded-full bg-ndm-navy py-1.5 pl-4 pr-1.5 text-[13px] text-white shadow-lg">
-              <span><span className="md:hidden">Tocá «Rutas» y elegí un recorrido</span><span className="hidden md:inline">Elegí una ruta para ver su recorrido y sus paradas</span></span>
+              <span><span className="md:hidden">Elegí una ruta abajo para ver su recorrido</span><span className="hidden md:inline">Elegí una ruta para ver su recorrido y sus paradas</span></span>
               <button onClick={dismissHint} aria-label="Cerrar aviso" className="grid h-8 w-8 shrink-0 place-items-center rounded-full hover:bg-white/15 pointer-coarse:h-11 pointer-coarse:w-11">
                 <Icon d={ICONS.close} />
               </button>
@@ -380,7 +441,7 @@ export default function App() {
             {fallback && <StatusPill>Mapa de respaldo (OpenFreeMap)</StatusPill>}
           </div>
         </div>
-        <div className="absolute bottom-8 right-3 z-[1000] flex max-w-[16rem] flex-col items-end gap-2">
+        <div style={{ bottom: 'calc(var(--sheet-h, 0px) + 32px)' }} className="absolute right-3 z-[1000] flex max-w-[16rem] flex-col items-end gap-2">
           {off.s === 'idle' && online && (
             <button onClick={startSave} className="rounded-2xl bg-white px-3 py-2 text-left text-xs font-semibold text-ndm-navy shadow-lg pointer-coarse:min-h-11 dark:bg-slate-800 dark:text-slate-100">
               Guardar mapa sin conexión ({TILES_MB} MB)
