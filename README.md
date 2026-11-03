@@ -17,6 +17,10 @@ Mapa de las 7 rutas (A-G) del 7 de noviembre, 18:00, Asunción. Producción: htt
 
 Intercambiadores: `app/src/intercambiadores.json`. Horarios de cierre anticipado: `app/src/cierres.json`. Ambos salen del Instagram oficial @nochedelosmuseos.
 
+## Dónde estoy
+
+Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide la ubicación al navegador (solo HTTPS), dibuja el punto con su radio de precisión y acerca el mapa. Si la persona está fuera de la zona del mapa (`BOUNDS`, igual al recorte de teselas) avisa en vez de mover el mapa. Funciona sin conexión (usa el GPS).
+
 ## Uso sin conexión
 
 La app registra un service worker (`app/src/sw.js`, plugin `vite-plugin-pwa`). Tras la primera visita guarda la app, la fuente Montserrat (alojada en el sitio) y, en segundo plano, el mapa completo (`asuncion.pmtiles`, 10 MB; no lo hace con "ahorro de datos"). Desde entonces abre sin red. Solo funciona en el build de producción (en `npm run dev` no se registra). Al regenerar las teselas con `scripts/build-tiles.sh`, subir `TILES_CACHE` en `app/src/tiles-handler.js` (`tiles-v2` a `tiles-v3`) para que los teléfonos las vuelvan a bajar.

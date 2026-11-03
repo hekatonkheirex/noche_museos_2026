@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import { addProtocol, setWorkerUrl } from 'maplibre-gl'
 import { Protocol } from 'pmtiles'
+import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE } from './locate.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
@@ -16,11 +17,14 @@ export default function App() {
   const mapEl = useRef(null)
   const map = useRef(null)
   const layer = useRef(null)
+  const me = useRef(null) // marcador de "dónde estoy"
+  const [msg, setMsg] = useState('') // aviso de ubicación
+  const [locating, setLocating] = useState(false)
   const keys = Object.keys(routes)
 
   useEffect(() => {
     // maxBounds = zona de las teselas propias (public/asuncion.pmtiles); fuera de ella no hay mapa base
-    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxBounds: [[-25.55, -57.85], [-25.05, -57.2]] }).setView([-25.2867, -57.6333], 14)
+    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxBounds: BOUNDS }).setView([-25.2867, -57.6333], 14)
     const gl = L.maplibreGL({ style: buildStyle(location.origin) }).addTo(map.current)
     // Respaldo: si las teselas propias fallan (no cargan o error de red), cambiar a OpenFreeMap una sola vez
     const glMap = gl.getMaplibreMap()
@@ -31,8 +35,25 @@ export default function App() {
       glMap.setStyle(FALLBACK_STYLE)
     })
     layer.current = L.layerGroup().addTo(map.current)
+    me.current = L.layerGroup().addTo(map.current)
+    map.current.on('locationfound', (e) => {
+      setLocating(false)
+      me.current.clearLayers()
+      if (!inZone(e.latlng.lat, e.latlng.lng)) return setMsg(OUT_OF_ZONE)
+      setMsg('')
+      L.circle(e.latlng, { radius: e.accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.12, interactive: false }).addTo(me.current)
+      L.circleMarker(e.latlng, { radius: 8, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1 }).bindTooltip('Estás acá').addTo(me.current)
+      map.current.flyTo(e.latlng, Math.max(map.current.getZoom(), 16))
+    })
+    map.current.on('locationerror', (e) => { setLocating(false); setMsg(errorMessage(e.code)) })
     return () => map.current.remove()
   }, [])
+
+  useEffect(() => {
+    if (!msg) return
+    const t = setTimeout(() => setMsg(''), 8000)
+    return () => clearTimeout(t)
+  }, [msg])
 
   const shown = useMemo(() => (sel === 'ALL' ? keys : [sel]), [sel])
 
@@ -126,7 +147,19 @@ export default function App() {
           <a className="underline" href="https://www.nochedemuseos.org.py" target="_blank" rel="noreferrer">Asociación Noche de los Museos</a>.
         </footer>
       </aside>
-      <main ref={mapEl} className="min-h-0 flex-1" aria-label="Mapa de rutas" />
+      <div className="relative min-h-0 flex-1">
+        <main ref={mapEl} className="h-full" aria-label="Mapa de rutas" />
+        <div className="absolute bottom-8 right-3 z-[1000] flex max-w-[16rem] flex-col items-end gap-2">
+          {msg && <p role="status" className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700 shadow-lg">{msg}</p>}
+          <button
+            className="flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-2.5 text-sm font-semibold text-white shadow-lg disabled:opacity-60"
+            disabled={locating}
+            onClick={() => { setLocating(true); setMsg(''); map.current.locate({ enableHighAccuracy: true, timeout: 10000, setView: false }) }}
+          >
+            <span aria-hidden="true">◎</span>{locating ? 'Buscando…' : 'Dónde estoy'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
