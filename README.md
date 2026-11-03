@@ -2,7 +2,7 @@
 
 Mapa de las 7 rutas (A-G) del 7 de noviembre, 18:00, Asunción. Producción: https://noche-museos-2026.vercel.app
 
-- `app/`: Vite + React + Leaflet. `npm run dev` para desarrollar, `npm run build` para compilar.
+- `app/`: Vite + React + Leaflet con mapa base de OpenFreeMap (vectorial, gratis, sin clave ni límite; el servidor público de OSM no tolera tráfico alto). Cambiar estilo en `app/src/App.jsx` (`liberty`, `positron`, `bright`). `npm run dev` para desarrollar, `npm run build` para compilar.
 - `scripts/`: datos de las paradas y rutas. `node --test scripts/` corre los tests.
 - `noche_museos_2026_mymaps.csv`: lista original de paradas (ruta, orden, nombre).
 

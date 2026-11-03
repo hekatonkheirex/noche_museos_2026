@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
+import { setWorkerUrl } from 'maplibre-gl'
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
+import '@maplibre/maplibre-gl-leaflet'
 import { routes } from './routes.js'
+
+setWorkerUrl(workerUrl) // Vite no resuelve solo el worker de MapLibre 6
 
 export default function App() {
   const [sel, setSel] = useState('ALL') // 'ALL' o letra de ruta
@@ -12,9 +17,10 @@ export default function App() {
 
   useEffect(() => {
     map.current = L.map(mapEl.current, { zoomControl: true }).setView([-25.2867, -57.6333], 14)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    // OpenFreeMap: teselas vectoriales gratis, sin clave ni límite de uso (OSM público veta tráfico masivo). Estilos: positron (claro), liberty (colorido), bright.
+    L.maplibreGL({
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Datos de <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
     }).addTo(map.current)
     layer.current = L.layerGroup().addTo(map.current)
     return () => map.current.remove()
