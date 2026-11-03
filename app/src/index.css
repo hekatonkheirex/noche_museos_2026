@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+
+html, body, #root { height: 100%; margin: 0; }
+.pin { display:grid; place-items:center; border-radius:9999px; color:#fff; font:700 12px/1 system-ui; border:2px solid #fff; box-shadow:0 1px 4px #0006; }
+.pin.swap { box-shadow:0 0 0 3px #facc15, 0 1px 6px #000a; }
