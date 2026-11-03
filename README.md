@@ -19,7 +19,7 @@ Intercambiadores: `app/src/intercambiadores.json`. Horarios de cierre anticipado
 
 ## Dónde estoy
 
-Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide la ubicación al navegador (solo HTTPS), dibuja el punto con su radio de precisión y acerca el mapa. Si la persona está fuera de la zona del mapa (`BOUNDS`, igual al recorte de teselas) avisa en vez de mover el mapa. Funciona sin conexión (usa el GPS).
+Botón sobre el mapa (`app/src/App.jsx`, lógica en `app/src/locate.js`): pide la ubicación al navegador (solo HTTPS) y la sigue mientras camina: punto con radio de precisión, el mapa acompaña. Si se arrastra el mapa deja de acompañar y aparece "Centrar"; "Detener seguimiento" lo apaga. Fuera de la zona del mapa (`BOUNDS`, igual al recorte de teselas) avisa una vez en vez de mover el mapa. Los estados del seguimiento están en la función pura `track` (con tests). Usa GPS de alta precisión, que gasta batería; por eso arranca solo con el botón y se apaga con "Detener". Funciona sin conexión.
 
 ## Uso sin conexión
 

@@ -22,3 +22,28 @@ test('mensajes: permiso denegado distinto del resto; hay mensaje fuera de zona',
   assert.equal(errorMessage(3), errorMessage(2))
   assert.match(OUT_OF_ZONE, /fuera de la zona/)
 })
+
+test('track: ciclo apagado -> esperando -> siguiendo -> apagado', async () => {
+  const { track, TRACK_OFF } = await import('./locate.js')
+  let s = track(TRACK_OFF, 'toggle')
+  assert.deepEqual(s, { mode: 'wait', follow: true })
+  s = track(s, 'fix')
+  assert.deepEqual(s, { mode: 'on', follow: true })
+  assert.deepEqual(track(s, 'toggle'), TRACK_OFF)
+})
+
+test('track: arrastrar suelta el seguimiento y centrar lo recupera; eventos tardíos con el seguimiento apagado no lo reactivan', async () => {
+  const { track, TRACK_OFF } = await import('./locate.js')
+  const on = { mode: 'on', follow: true }
+  const dragged = track(on, 'drag')
+  assert.deepEqual(dragged, { mode: 'on', follow: false })
+  assert.deepEqual(track(dragged, 'fix'), dragged) // una posición nueva no recentra sola
+  assert.deepEqual(track(dragged, 'center'), on)
+  for (const ev of ['fix', 'drag', 'center']) assert.deepEqual(track(TRACK_OFF, ev), TRACK_OFF)
+  assert.deepEqual(track({ mode: 'wait', follow: true }, 'drag'), { mode: 'wait', follow: true })
+})
+
+test('track: permiso denegado apaga desde cualquier estado', async () => {
+  const { track, TRACK_OFF } = await import('./locate.js')
+  for (const s of [{ mode: 'wait', follow: true }, { mode: 'on', follow: false }]) assert.deepEqual(track(s, 'denied'), TRACK_OFF)
+})

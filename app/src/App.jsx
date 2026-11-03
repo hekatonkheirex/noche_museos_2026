@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
 import { addProtocol, setWorkerUrl } from 'maplibre-gl'
 import { Protocol } from 'pmtiles'
-import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE } from './locate.js'
+import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE, track, TRACK_OFF } from './locate.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
@@ -19,7 +19,11 @@ export default function App() {
   const layer = useRef(null)
   const me = useRef(null) // marcador de "dónde estoy"
   const [msg, setMsg] = useState('') // aviso de ubicación
-  const [locating, setLocating] = useState(false)
+  const [tr, setTr] = useState(TRACK_OFF) // seguimiento: { mode: off|wait|on, follow }
+  const trRef = useRef(TRACK_OFF) // misma info para los eventos del mapa (se registran una sola vez)
+  const last = useRef(null) // última posición dentro de la zona
+  const outShown = useRef(false) // avisar "fuera de zona" una vez, no en cada posición
+  const send = (ev) => { trRef.current = track(trRef.current, ev); setTr(trRef.current) }
   const keys = Object.keys(routes)
 
   useEffect(() => {
@@ -37,15 +41,29 @@ export default function App() {
     layer.current = L.layerGroup().addTo(map.current)
     me.current = L.layerGroup().addTo(map.current)
     map.current.on('locationfound', (e) => {
-      setLocating(false)
+      const first = trRef.current.mode === 'wait'
+      send('fix')
       me.current.clearLayers()
-      if (!inZone(e.latlng.lat, e.latlng.lng)) return setMsg(OUT_OF_ZONE)
-      setMsg('')
+      if (!inZone(e.latlng.lat, e.latlng.lng)) {
+        last.current = null
+        if (!outShown.current) setMsg(OUT_OF_ZONE)
+        outShown.current = true
+        return
+      }
+      outShown.current = false
+      last.current = e.latlng
       L.circle(e.latlng, { radius: e.accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.12, interactive: false }).addTo(me.current)
       L.circleMarker(e.latlng, { radius: 8, color: '#fff', weight: 3, fillColor: '#2563eb', fillOpacity: 1 }).bindTooltip('Estás acá').addTo(me.current)
-      map.current.flyTo(e.latlng, Math.max(map.current.getZoom(), 16))
+      if (!trRef.current.follow) return
+      if (first) map.current.flyTo(e.latlng, Math.max(map.current.getZoom(), 16))
+      else map.current.panTo(e.latlng)
     })
-    map.current.on('locationerror', (e) => { setLocating(false); setMsg(errorMessage(e.code)) })
+    map.current.on('locationerror', (e) => {
+      if (e.code === 1) { map.current.stopLocate(); send('denied'); return setMsg(errorMessage(1)) }
+      // Con el seguimiento activo, los fallos puntuales (señal débil) se ignoran: se conserva la última posición
+      if (trRef.current.mode === 'wait') setMsg(errorMessage(e.code))
+    })
+    map.current.on('dragstart', () => send('drag')) // si la persona mueve el mapa, deja de acompañarla
     return () => map.current.remove()
   }, [])
 
@@ -54,6 +72,20 @@ export default function App() {
     const t = setTimeout(() => setMsg(''), 8000)
     return () => clearTimeout(t)
   }, [msg])
+
+  function toggleLocate() {
+    setMsg('')
+    outShown.current = false
+    if (tr.mode === 'off') {
+      send('toggle')
+      map.current.locate({ watch: true, enableHighAccuracy: true, timeout: 60000, maximumAge: 5000, setView: false })
+    } else {
+      map.current.stopLocate()
+      me.current.clearLayers()
+      last.current = null
+      send('toggle')
+    }
+  }
 
   const shown = useMemo(() => (sel === 'ALL' ? keys : [sel]), [sel])
 
@@ -151,18 +183,23 @@ export default function App() {
         <main ref={mapEl} className="h-full" aria-label="Mapa de rutas" />
         <div className="absolute bottom-8 right-3 z-[1000] flex max-w-[16rem] flex-col items-end gap-2">
           {msg && <p role="status" className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700 shadow-lg">{msg}</p>}
-          <button
-            className="flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-2.5 text-sm font-semibold text-white shadow-lg disabled:opacity-60"
-            disabled={locating}
-            onClick={() => { setLocating(true); setMsg(''); map.current.locate({ enableHighAccuracy: true, timeout: 10000, setView: false }) }}
-          >
-            <span aria-hidden="true">◎</span>{locating ? 'Buscando…' : 'Dónde estoy'}
-          </button>
+          <div className="flex gap-2">
+            {tr.mode === 'on' && !tr.follow && (
+              <button className={BTN} onClick={() => { send('center'); if (last.current) map.current.flyTo(last.current, Math.max(map.current.getZoom(), 16)) }}>
+                <span aria-hidden="true">⌖</span>Centrar
+              </button>
+            )}
+            <button className={BTN} aria-pressed={tr.mode !== 'off'} onClick={toggleLocate}>
+              <span aria-hidden="true">◎</span>{{ off: 'Dónde estoy', wait: 'Buscando… (cancelar)', on: 'Detener seguimiento' }[tr.mode]}
+            </button>
+          </div>
         </div>
       </div>
     </div>
   )
 }
+
+const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-2.5 text-sm font-semibold text-white shadow-lg'
 
 const fmt = (p) => `${(p.distance / 1000).toFixed(1)} km · ${Math.round(p.duration / 60)} min en bus`
 
