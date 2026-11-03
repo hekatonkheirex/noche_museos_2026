@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import L from 'leaflet'
-import { setWorkerUrl } from 'maplibre-gl'
+import { addProtocol, setWorkerUrl } from 'maplibre-gl'
+import { Protocol } from 'pmtiles'
+import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import '@maplibre/maplibre-gl-leaflet'
 import { routes } from './routes.js'
 
 setWorkerUrl(workerUrl) // Vite no resuelve solo el worker de MapLibre 6
+addProtocol('pmtiles', new Protocol().tile)
 
 export default function App() {
   const [sel, setSel] = useState('ALL') // 'ALL' o letra de ruta
@@ -16,12 +19,17 @@ export default function App() {
   const keys = Object.keys(routes)
 
   useEffect(() => {
-    map.current = L.map(mapEl.current, { zoomControl: true }).setView([-25.2867, -57.6333], 14)
-    // OpenFreeMap: teselas vectoriales gratis, sin clave ni límite de uso (OSM público veta tráfico masivo). Estilos: positron (claro), liberty (colorido), bright.
-    L.maplibreGL({
-      style: 'https://tiles.openfreemap.org/styles/liberty',
-      attribution: '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Datos de <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
-    }).addTo(map.current)
+    // maxBounds = zona de las teselas propias (public/asuncion.pmtiles); fuera de ella no hay mapa base
+    map.current = L.map(mapEl.current, { zoomControl: true, minZoom: 10, maxBounds: [[-25.45, -57.75], [-25.18, -57.3]] }).setView([-25.2867, -57.6333], 14)
+    const gl = L.maplibreGL({ style: buildStyle(location.origin) }).addTo(map.current)
+    // Respaldo: si las teselas propias fallan (no cargan o error de red), cambiar a OpenFreeMap una sola vez
+    const glMap = gl.getMaplibreMap()
+    glMap.on('error', (e) => {
+      if (e.sourceId !== SOURCE || glMap.__fallback) return
+      glMap.__fallback = true
+      console.warn('Teselas propias fallaron, usando OpenFreeMap', e.error)
+      glMap.setStyle(FALLBACK_STYLE)
+    })
     layer.current = L.layerGroup().addTo(map.current)
     return () => map.current.remove()
   }, [])

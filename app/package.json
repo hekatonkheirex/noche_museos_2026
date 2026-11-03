@@ -5,12 +5,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test ../scripts/"
+    "test": "node --test ../scripts/ src/"
   },
   "dependencies": {
     "@maplibre/maplibre-gl-leaflet": "0.1.4",
+    "@protomaps/basemaps": "5.7.2",
     "leaflet": "1.9.4",
     "maplibre-gl": "6.16.0",
+    "pmtiles": "4.5.0",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },

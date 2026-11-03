@@ -5,3 +5,6 @@ source/
 .env*
 *.log
 media kit.pdf
+
+# Teselas propias (25 MB): se generan con scripts/build-tiles.sh
+app/public/asuncion.pmtiles
