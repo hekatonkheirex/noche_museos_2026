@@ -13,7 +13,7 @@ import { coreBounds, pinSize } from './view.js'
 import { ICONS, svg } from './icons.js'
 import { cierreRuns } from './cierres.js'
 import { SWAP } from './colors.js'
-import { clampHeight, nearestSnap, sheetHeights, stepSnap, tapSnap } from './sheet.js'
+import { PEEK, clampHeight, nearestSnap, sheetHeights, stepSnap, tapSnap } from './sheet.js'
 import { effectiveTheme, otherTheme, THEME_KEY } from './theme.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import { registerWorker, saveTiles, shouldAutoSave, tilesSaved, TILES_MB } from './offline.js'
@@ -195,6 +195,8 @@ export default function App() {
     // Bolt no tiene enlace universal: se intenta abrir la app con el destino (Android: intent al paquete; iOS: esquema taxify://) con respaldo a bolt.eu.
     // Además se copia el destino por si la app abre sin él. En computadora se abre bolt.eu (el <a> normal).
     map.current.on('popupopen', (e) => {
+      // En celular la hoja baja a "asomada" al abrir un popup (toque en un marcador): si no, el popup queda debajo de la hoja
+      if (window.matchMedia('(max-width: 767px)').matches) { popupPad.current.y = PEEK + 112; setSnap('peek') }
       for (const el of e.popup.getElement()?.querySelectorAll('a[data-bolt]') ?? []) {
         if (el.dataset.bound) continue
         el.dataset.bound = '1'
