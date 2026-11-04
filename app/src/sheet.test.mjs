@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { clampHeight, hasMore, HEADER, nearestSnap, PEEK, sheetHeights, stepSnap, tapSnap } from './sheet.js'
+import { clampHeight, FADE, hasMore, HEADER, moreOpacity, nearestSnap, PEEK, sheetHeights, stepSnap, tapSnap } from './sheet.js'
 
 test('sheetHeights: mínima fija, media = mitad de la pantalla, máxima deja visible el encabezado; orden creciente en pantallas chicas y grandes', () => {
   for (const vh of [480, 568, 667, 812, 932]) {
@@ -45,4 +45,14 @@ test('hasMore: avisa si queda lista debajo; no con la hoja asomada (alto 0), al 
   assert.equal(hasMore({ scrollTop: 700, clientHeight: 200, scrollHeight: 900 }), false)
   assert.equal(hasMore({ scrollTop: 0, clientHeight: 0, scrollHeight: 900 }), false)
   assert.equal(hasMore({ scrollTop: 0, clientHeight: 200, scrollHeight: 200 }), false)
+})
+
+test('moreOpacity: 1 arriba, baja con el desplazamiento, 0 tras FADE px o al final de la lista', () => {
+  const m = (scrollTop, scrollHeight = 3000) => ({ scrollTop, clientHeight: 200, scrollHeight })
+  assert.equal(moreOpacity(m(0)), 1)
+  assert.equal(moreOpacity(m(FADE / 2)), 0.5)
+  assert.equal(moreOpacity(m(FADE)), 0)
+  assert.equal(moreOpacity(m(FADE * 3)), 0)
+  assert.equal(moreOpacity(m(0, 200)), 0) // todo cabe
+  assert.equal(moreOpacity({ scrollTop: -20, clientHeight: 200, scrollHeight: 3000 }), 1) // rebote de iOS
 })

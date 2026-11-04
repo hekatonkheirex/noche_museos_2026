@@ -21,3 +21,7 @@ export const stepSnap = (snap, dir) => ORDER[Math.min(ORDER.length - 1, Math.max
 
 // ¿Queda lista por ver debajo? (tolerancia de 4 px por redondeos; con alto 0, hoja asomada, no hay nada que avisar)
 export const hasMore = ({ scrollTop, clientHeight, scrollHeight }) => clientHeight > 0 && scrollHeight - scrollTop - clientHeight > 4
+
+// Opacidad del aviso "Más paradas": 1 arriba de todo, baja a 0 tras FADE px de desplazamiento, y 0 si no queda lista debajo.
+export const FADE = 160
+export const moreOpacity = (m) => (hasMore(m) ? Math.round(Math.min(1, Math.max(0, 1 - m.scrollTop / FADE)) * 20) / 20 : 0)

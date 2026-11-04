@@ -13,7 +13,7 @@ import { coreBounds, pinSize } from './view.js'
 import { ICONS, svg } from './icons.js'
 import { cierreRuns } from './cierres.js'
 import { SWAP } from './colors.js'
-import { PEEK, clampHeight, hasMore, nearestSnap, sheetHeights, stepSnap, tapSnap } from './sheet.js'
+import { PEEK, clampHeight, moreOpacity, nearestSnap, sheetHeights, stepSnap, tapSnap } from './sheet.js'
 import { effectiveTheme, otherTheme, THEME_KEY } from './theme.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import { registerWorker, saveTiles, shouldAutoSave, tilesSaved, TILES_MB } from './offline.js'
@@ -35,7 +35,7 @@ export default function App() {
   const [drag, setDrag] = useState(null) // altura en px mientras se arrastra
   const dragRef = useRef(null)
   const listEl = useRef(null)
-  const [more, setMore] = useState(false) // quedan paradas por ver debajo del borde de la lista
+  const [more, setMore] = useState(0) // opacidad del aviso "Más paradas" (0 = oculto)
   const heights = sheetHeights(vh)
   const sheetH = drag ?? heights[snap]
   const popupPad = useRef(null) // margen inferior del auto-desplazamiento de popups: sube con la hoja (se muta el mismo L.Point)
@@ -78,7 +78,7 @@ export default function App() {
   useEffect(() => {
     const el = listEl.current
     if (!el) return
-    const check = () => setMore(hasMore(el))
+    const check = () => setMore(moreOpacity(el))
     check()
     el.addEventListener('scroll', check, { passive: true })
     const ro = new ResizeObserver(check)
@@ -425,12 +425,13 @@ export default function App() {
               </li>
             ))}
           </ol>
-          {more && sheetH >= PEEK + 80 && ( // con la hoja asomada la lista mide ~12 px: el botón quedaría tapado pero enfocable
+          {more > 0 && sheetH >= PEEK + 80 && ( // con la hoja asomada la lista mide ~12 px: el botón quedaría tapado pero enfocable
             <button
               onClick={() => listEl.current.scrollBy({ top: listEl.current.clientHeight * 0.8, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}
-              className="absolute bottom-2 left-1/2 flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full bg-ndm-navy px-4 text-[13px] font-semibold text-white shadow-lg ring-1 ring-white/30 pointer-coarse:h-11"
+              style={{ opacity: more }}
+              className="absolute bottom-2 left-1/2 flex h-7 -translate-x-1/2 items-center gap-1 rounded-full bg-ndm-navy px-3 text-xs font-semibold text-white shadow-lg ring-1 ring-white/30 pointer-coarse:h-9"
             >
-              Más paradas <Icon d={ICONS.down} size={16} />
+              Más paradas <Icon d={ICONS.down} size={14} />
             </button>
           )}
           </div>
