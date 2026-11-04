@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { clampHeight, HEADER, nearestSnap, PEEK, sheetHeights, stepSnap, tapSnap } from './sheet.js'
+import { clampHeight, hasMore, HEADER, nearestSnap, PEEK, sheetHeights, stepSnap, tapSnap } from './sheet.js'
 
 test('sheetHeights: mínima fija, media = mitad de la pantalla, máxima deja visible el encabezado; orden creciente en pantallas chicas y grandes', () => {
   for (const vh of [480, 568, 667, 812, 932]) {
@@ -37,4 +37,12 @@ test('tapSnap y stepSnap: toque alterna mínima/media; teclado sube y baja sin p
   assert.equal(tapSnap('peek'), 'half'); assert.equal(tapSnap('half'), 'peek'); assert.equal(tapSnap('full'), 'peek')
   assert.equal(stepSnap('peek', 1), 'half'); assert.equal(stepSnap('half', 1), 'full'); assert.equal(stepSnap('full', 1), 'full')
   assert.equal(stepSnap('full', -1), 'half'); assert.equal(stepSnap('peek', -1), 'peek')
+})
+
+test('hasMore: avisa si queda lista debajo; no con la hoja asomada (alto 0), al final, ni con diferencias de redondeo', () => {
+  assert.equal(hasMore({ scrollTop: 0, clientHeight: 200, scrollHeight: 900 }), true)
+  assert.equal(hasMore({ scrollTop: 696, clientHeight: 200, scrollHeight: 900 }), false) // quedan 4 px
+  assert.equal(hasMore({ scrollTop: 700, clientHeight: 200, scrollHeight: 900 }), false)
+  assert.equal(hasMore({ scrollTop: 0, clientHeight: 0, scrollHeight: 900 }), false)
+  assert.equal(hasMore({ scrollTop: 0, clientHeight: 200, scrollHeight: 200 }), false)
 })

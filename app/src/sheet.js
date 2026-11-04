@@ -18,3 +18,6 @@ export const tapSnap = (snap) => (snap === 'peek' ? 'half' : 'peek')
 // Teclado: flecha arriba sube un punto, abajo baja uno.
 const ORDER = ['peek', 'half', 'full']
 export const stepSnap = (snap, dir) => ORDER[Math.min(ORDER.length - 1, Math.max(0, ORDER.indexOf(snap) + dir))]
+
+// ¿Queda lista por ver debajo? (tolerancia de 4 px por redondeos; con alto 0, hoja asomada, no hay nada que avisar)
+export const hasMore = ({ scrollTop, clientHeight, scrollHeight }) => clientHeight > 0 && scrollHeight - scrollTop - clientHeight > 4

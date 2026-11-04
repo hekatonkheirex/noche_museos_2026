@@ -13,7 +13,7 @@ import { coreBounds, pinSize } from './view.js'
 import { ICONS, svg } from './icons.js'
 import { cierreRuns } from './cierres.js'
 import { SWAP } from './colors.js'
-import { PEEK, clampHeight, nearestSnap, sheetHeights, stepSnap, tapSnap } from './sheet.js'
+import { PEEK, clampHeight, hasMore, nearestSnap, sheetHeights, stepSnap, tapSnap } from './sheet.js'
 import { effectiveTheme, otherTheme, THEME_KEY } from './theme.js'
 import { buildStyle, FALLBACK_STYLE, SOURCE } from './basemap.js'
 import { registerWorker, saveTiles, shouldAutoSave, tilesSaved, TILES_MB } from './offline.js'
@@ -34,6 +34,8 @@ export default function App() {
   const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const [drag, setDrag] = useState(null) // altura en px mientras se arrastra
   const dragRef = useRef(null)
+  const listEl = useRef(null)
+  const [more, setMore] = useState(false) // quedan paradas por ver debajo del borde de la lista
   const heights = sheetHeights(vh)
   const sheetH = drag ?? heights[snap]
   const popupPad = useRef(null) // margen inferior del auto-desplazamiento de popups: sube con la hoja (se muta el mismo L.Point)
@@ -72,6 +74,17 @@ export default function App() {
     document.documentElement.style.setProperty('--sheet-h', `${px}px`)
     if (popupPad.current) popupPad.current.y = px + 112
   }, [sheetH, mobile])
+  // Aviso "Más paradas": se recalcula al desplazar, al cambiar el alto de la hoja (ResizeObserver, también durante la animación) y al cambiar de ruta
+  useEffect(() => {
+    const el = listEl.current
+    if (!el) return
+    const check = () => setMore(hasMore(el))
+    check()
+    el.addEventListener('scroll', check, { passive: true })
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => { el.removeEventListener('scroll', check); ro.disconnect() }
+  }, [sel])
   function onHandleDown(e) {
     e.currentTarget.setPointerCapture(e.pointerId)
     dragRef.current = { y: e.clientY, h: sheetH, t: performance.now(), moved: false, last: sheetH }
@@ -375,7 +388,8 @@ export default function App() {
             <span className="flex items-center gap-1"><Pill kind="time">Hasta las 22:00</Pill> cierra antes</span>
             <span className="flex items-center gap-1"><span className="text-slate-700 dark:text-slate-200"><Icon d={ICONS.arrow} size={16} /></span> sentido del recorrido</span>
           </div>
-          <ol className="scroll-more min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
+          <div className="relative flex min-h-0 flex-1 flex-col">
+          <ol ref={listEl} className="scroll-more min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
             {shown.map((k) => (
               <li key={k} className="mb-3">
                 <p className="mb-1 font-semibold text-(color:--ink) dark:text-(color:--night)" style={{ '--ink': routes[k].ink, '--night': routes[k].night }}>Ruta {k} · {routes[k].stops.length} paradas{routes[k].path && ` · ${fmt(routes[k].path)}`}</p>
@@ -411,6 +425,15 @@ export default function App() {
               </li>
             ))}
           </ol>
+          {more && sheetH >= PEEK + 80 && ( // con la hoja asomada la lista mide ~12 px: el botón quedaría tapado pero enfocable
+            <button
+              onClick={() => listEl.current.scrollBy({ top: listEl.current.clientHeight * 0.8, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}
+              className="absolute bottom-2 left-1/2 flex h-9 -translate-x-1/2 items-center gap-1.5 rounded-full bg-ndm-navy px-4 text-[13px] font-semibold text-white shadow-lg ring-1 ring-white/30 pointer-coarse:h-11"
+            >
+              Más paradas <Icon d={ICONS.down} size={16} />
+            </button>
+          )}
+          </div>
           <footer className="block shrink-0 border-t px-3 py-2 text-xs leading-4 text-slate-500 dark:border-slate-700 dark:text-slate-400">
           Mapa no oficial. Datos de la{' '}
           <a className="underline" href="https://www.nochedemuseos.org.py" target="_blank" rel="noreferrer">Asociación Noche de los Museos</a>.
