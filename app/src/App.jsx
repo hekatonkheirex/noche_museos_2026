@@ -375,7 +375,7 @@ export default function App() {
             <span className="flex items-center gap-1"><Pill kind="time">Hasta las 22:00</Pill> cierra antes</span>
             <span className="flex items-center gap-1"><span className="text-slate-700 dark:text-slate-200"><Icon d={ICONS.arrow} size={16} /></span> sentido del recorrido</span>
           </div>
-          <ol className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
+          <ol className="scroll-more min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-sm">
             {shown.map((k) => (
               <li key={k} className="mb-3">
                 <p className="mb-1 font-semibold text-(color:--ink) dark:text-(color:--night)" style={{ '--ink': routes[k].ink, '--night': routes[k].night }}>Ruta {k} · {routes[k].stops.length} paradas{routes[k].path && ` · ${fmt(routes[k].path)}`}</p>

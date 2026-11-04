@@ -67,3 +67,18 @@ body { font-family: var(--font-sans); color: var(--color-ndm-ink); }
 
 /* Celular: la hoja inferior tapa la parte baja del mapa; el zoom y la atribución suben encima de ella (--sheet-h la fija App.jsx) */
 @media (max-width: 767px) { .leaflet-bottom { margin-bottom: var(--sheet-h, 0px); } }
+
+/* Lista de paradas: sombra en el borde de abajo mientras quede contenido por desplazar (la capa "local" la tapa al llegar al final).
+   --scroll-bg = fondo de la hoja, para que la capa que tapa sea opaca. */
+.scroll-more {
+  --scroll-bg: #fff;
+  background:
+    linear-gradient(to top, var(--scroll-bg) 30%, transparent) bottom / 100% 28px no-repeat local,
+    linear-gradient(to top, rgba(0, 30, 71, 0.22), transparent) bottom / 100% 18px no-repeat scroll;
+}
+[data-theme=dark] .scroll-more {
+  --scroll-bg: #0f172a; /* = slate-900 */
+  background:
+    linear-gradient(to top, var(--scroll-bg) 30%, transparent) bottom / 100% 28px no-repeat local,
+    linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent) bottom / 100% 18px no-repeat scroll;
+}
