@@ -58,7 +58,7 @@ def og():  # tarjeta para WhatsApp / Instagram / X: logo completo (de 195 px, am
             if (d / name).exists(): return ImageFont.truetype(str(d / name), size)
         return ImageFont.load_default(size)
     d = ImageDraw.Draw(img)
-    for text, f, y, col in ((os.environ.get('OG_TITLE', 'Mapa de rutas'), font('Montserrat-Bold.ttf', 56), 412, (255, 255, 255)), (os.environ.get('OG_SUBTITLE', 'Sábado 7 de noviembre · 18 h · Asunción'), font('Montserrat-Regular.ttf', 34), 492, (102, 168, 216))):
+    for text, f, y, col in ((os.environ.get('OG_TITLE', 'Mapa de rutas'), font('Montserrat-Bold.ttf', 56), 412, (255, 255, 255)), (os.environ.get('OG_SUBTITLE', 'Postergada · Fecha por anunciar · Asunción'), font('Montserrat-Regular.ttf', 34), 492, (102, 168, 216))):
         d.text(((W - d.textlength(text, font=f)) / 2, y), text, font=f, fill=col)
     return img.convert('RGB')
 

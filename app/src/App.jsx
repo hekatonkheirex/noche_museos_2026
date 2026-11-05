@@ -357,7 +357,7 @@ export default function App() {
           <div className="min-w-0">
             <h1 className="sr-only">Noche de los Museos 2026 · Mapa de rutas</h1>
             <img src="/ndm-2026-logo.png" alt="" width="104" height="48" className="h-12 w-auto" />
-            <p className="mt-1 text-[13px] font-normal tracking-wide text-ndm-sky">Rutas · 7 de noviembre · 18 h</p>
+            <p className="mt-1 text-[13px] font-normal tracking-wide text-ndm-sky">Rutas · Postergada · Fecha por anunciar</p>
           </div>
         </header>
         <section
