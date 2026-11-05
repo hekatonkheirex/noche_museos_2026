@@ -5,9 +5,9 @@ import { Protocol } from 'pmtiles'
 import { BOUNDS, errorMessage, inZone, OUT_OF_ZONE, track, TRACK_OFF } from './locate.js'
 import { arrowHtml, arrowsAlong } from './arrows.js'
 import { laneUnits, offsetPath } from './lanes.js'
-import { esc, infoHtml } from './info.js'
+import { popupHtml } from './popup.js'
 import museos from './museos-info.json' // ficha de cada parada (scripts/build-info.mjs)
-import { BOLT_URL, boltTarget, destinoTexto, googleMapsUrl, uberUrl, wazeUrl } from './links.js'
+import { BOLT_URL, boltTarget } from './links.js'
 import { spread } from './spread.js'
 import { coreBounds, pinSize } from './view.js'
 import { ICONS, svg } from './icons.js'
@@ -279,7 +279,7 @@ export default function App() {
         const icon = pinIcon(s, r, size, sel === 'ALL')
         const also = (routes[k] && s.also.filter((x) => x !== k).join(', ')) || ''
         const marker = L.marker([s.lat, s.lon], { icon })
-          .bindPopup(`<b>${s.nombre}</b><br>Ruta ${k} · parada ${s.orden}${s.swap || s.cierra ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${s.swap ? pillHtml('swap', `${svg('swap', 12)} Intercambiador: Ruta ${s.swap.join(' ↔ ')}`) : ''}${s.cierra ? pillHtml('time', `Hasta las ${s.cierra}`) : ''}</div>` : ''}${also ? `<br>También en: ${also}` : ''}${s.approx ? '<br><i>Ubicación aproximada (calle)</i>' : ''}${museos[s.nombre] ? infoHtml(museos[s.nombre]) : ''}<div class="navgrp"><span class="navlbl">Llegar</span><div class="navrow">${navLink(googleMapsUrl(s.lat, s.lon), 'Google Maps')}${navLink(wazeUrl(s.lat, s.lon), 'Waze')}</div></div><div class="navgrp"><span class="navlbl">Pedir viaje</span><div class="navrow">${navLink(uberUrl(s.lat, s.lon, s.nombre), 'Uber')}${navLink(BOLT_URL, 'Bolt', `data-bolt="1" data-lat="${s.lat}" data-lon="${s.lon}" data-name="${esc(s.nombre)}" data-copy="${esc(destinoTexto(s.nombre, museos[s.nombre]?.direccion))}"`)}</div></div>`, { minWidth: 240, maxWidth: 300, autoPanPaddingTopLeft: [12, 64], autoPanPaddingBottomRight: popupPad.current })
+          .bindPopup(popupHtml(s, k, also, museos[s.nombre]), { minWidth: 240, maxWidth: 300, autoPanPaddingTopLeft: [12, 64], autoPanPaddingBottomRight: popupPad.current })
           .addTo(g)
         pins.current.push({ id: `${k}-${s.orden}`, marker, ll: [s.lat, s.lon], size, s, r })
       }
@@ -511,16 +511,12 @@ const pinIcon = (s, r, size, all) => L.divIcon({
 
 const BTN = 'flex items-center gap-2 rounded-full bg-ndm-navy px-4 py-3 text-sm font-semibold text-white shadow-lg dark:bg-white dark:text-ndm-navy'
 
-// attrs (opcional): atributos HTML ya escapados (Bolt lo usa para su comportamiento propio, ver popupopen)
-const navLink = (href, text, attrs = '') => `<a class="navpill" href="${href}" target="_blank" rel="noopener noreferrer" ${attrs}>${text}</a>`
-
 const fmt = (p) => `${(p.distance / 1000).toFixed(1)} km · ${Math.round(p.duration / 60)} min en bus`
 
 const PILL = {
-  swap: { cls: '', css: `background:${SWAP.bg};color:${SWAP.fg};border-color:${SWAP.ring}`, style: { background: SWAP.bg, color: SWAP.fg, boxShadow: `inset 0 0 0 1px ${SWAP.ring}` } },
-  time: { cls: 'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-300', css: 'background:#f1f5f9;color:#334155;border-color:#cbd5e1' },
+  swap: { cls: '', style: { background: SWAP.bg, color: SWAP.fg, boxShadow: `inset 0 0 0 1px ${SWAP.ring}` } },
+  time: { cls: 'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-300' },
 }
-const pillHtml = (kind, text) => `<span style="${PILL[kind].css};border:1px solid;border-radius:9999px;padding:1px 8px;font:600 12px/1.5 system-ui;white-space:nowrap">${text}</span>`
 function Pill({ kind, title, children }) {
   return <span title={title} style={PILL[kind].style} className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-px text-xs font-semibold leading-5 ${PILL[kind].cls}`}>{children}</span>
 }
