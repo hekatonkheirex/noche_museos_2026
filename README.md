@@ -1,6 +1,6 @@
 # Noche de los Museos 2026 · Mapa de rutas
 
-Mapa de las 7 rutas (A-G) en Asunción. Postergada hasta nuevo aviso (era el 7 de noviembre); la organización anunciará la nueva fecha. Producción: https://noche-museos-2026.vercel.app
+Mapa de las 7 rutas (A-G) del 21 de noviembre (postergada desde el 7), 18:00, Asunción. Producción: https://noche-museos-2026.vercel.app
 
 - `app/`: Vite + React + Leaflet + MapLibre. `npm run dev` para desarrollar, `npm run build` para compilar, `npm test` para los tests.
 - Mapa base: teselas Protomaps de Gran Asunción alojadas en el propio sitio (`app/public/asuncion.pmtiles`, fuentes y sprites en `app/public/map/`), configuradas en `app/src/basemap.js`. Si no cargan, `App.jsx` cambia solo a OpenFreeMap (gratis, sin clave). El `.pmtiles` (10 MB) va en Git LFS (requiere `git lfs install` y "Git LFS" activo en Vercel); `scripts/build-tiles.sh` lo regenera. Sin ese archivo en el deploy, el mapa usa el respaldo.
